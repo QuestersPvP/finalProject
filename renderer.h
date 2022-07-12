@@ -277,24 +277,29 @@ public:
 							{
 								lineStrings.push_back(lineRead);
 							}
+							// breaking the matrix into 1.000, 1.000, 1.000, 1.000)
+							std::stringstream findCarrot(lineStrings[1]);
+							while (std::getline(findCarrot, lineRead, '>'))
+							{
+								lineStrings.push_back(lineRead);
+							}
 							// breaking the matrix into 1.000, 1.000, 1.000, 1.000
-							std::stringstream find2ndParen(lineStrings[1]);
+							std::stringstream find2ndParen(lineStrings[2]);
 							while (std::getline(find2ndParen, lineRead, ')'))
 							{
 								lineStrings.push_back(lineRead);
 							}
 							// breaking the matrix into 1.000 1.000 1.000 1.000
-							std::stringstream findFloats(lineStrings[2]);
-							int counter = 3;
+							std::stringstream findFloats(lineStrings[3]);
+							int counter = 4;
 							while (std::getline(findFloats, lineRead, ','))
 							{
 								lineStrings.push_back(lineRead);
 								// convert the strings into a float
-								//lineFloats.push_back(std::stof(lineStrings[counter]));
+								lineFloats.push_back(std::stof(lineStrings[counter]));
 								
 								counter++;
 							}
-							int temp = 0;
 							// deposit the information into a new matrix
 							switch (i)
 							{
@@ -317,10 +322,10 @@ public:
 								theNewMatrix.row3.w = lineFloats[3];
 								break;
 							case 3:
-								theNewMatrix.row3.x = lineFloats[0];
-								theNewMatrix.row3.y = lineFloats[1];
-								theNewMatrix.row3.z = lineFloats[2];
-								theNewMatrix.row3.w = lineFloats[3];
+								theNewMatrix.row4.x = lineFloats[0];
+								theNewMatrix.row4.y = lineFloats[1];
+								theNewMatrix.row4.z = lineFloats[2];
+								theNewMatrix.row4.w = lineFloats[3];
 								modelLocations.push_back(theNewMatrix);
 								break;
 							}
