@@ -3,6 +3,10 @@
 #include <d3dcompiler.h>
 #pragma comment(lib, "d3dcompiler.lib")
 #include "d3dx12.h" // official helper file provided by microsoft
+
+#include <fstream>
+#include <vector>
+
 using namespace std::chrono;
 // Simple Vertex Shader
 const char* vertexShaderSource = R"(
@@ -90,6 +94,8 @@ public:
 	{
 		return degree * (3.14 / 180);
 	}
+
+	
 
 	// Part 2f DONE
 	//  Part 3b DONE
@@ -194,8 +200,6 @@ public:
 		//gwGmatrix.LookAtLHF(eye, worldMatrixTranslation, up, gwViewMatrix);
 		gwViewMatrixCopy = gwViewMatrix;
 
-		
-
 		//GW::GRAPHICS::GDirectX12Surface::GetAspectRatio(temp);
 		_win.GetClientHeight(tempHeight);
 		_win.GetClientWidth(tempWidth);
@@ -204,52 +208,154 @@ public:
 		gwGmatrix.IdentityF(gwProjectionMatrix);
 		aspectRatio = ((float)tempWidth / (float)tempHeight);
 		gwGmatrix.ProjectionDirectXLHF(DegreeToRadians(65), aspectRatio, 0.1f, 100, gwProjectionMatrix);
-		
-		// Part 1b DONE
-		// Part 1c DONE
-		// Create Vertex Buffer
+
+
+		/// <summary>
+		/// READING FILE START
+		/// </summary>
+		#pragma region File I/O
+						// run h2b file parser on the meshes you read in
+		// array of matrix
+		// parse gamelevel.txt
+		/*
+			7.) After the loop exists you should have collected all the level data, now time to transfer to GPU.
+		*/
+
+		//1.) Use either std::ifstream or FILE * to open the file.
+		std::ifstream reader;
+		std::string lineRead;
+		std::string mFileName = "../GameLevel.txt";
+		reader.open(mFileName);
+
+		std::vector<std::string> modelNames;			// vector of model names
+		std::vector<GW::MATH::GMATRIXF> modelLocations;	// vector of model location matrixes
+		int modelsReadIn = 0;							// keep track of how many models
+		bool sameModelName = false;						// bool to keep track of if a model name has been read in already or not
+
+		//2.) Enter a infinite loop that stops when there are no more lines to read from the file.
+
+		if (reader.is_open())
+		{
+			std::cout << "File is open - time to read" << std::endl;
+			while (true)
+			{
+				if (reader.eof())
+					break;
+				//3.) Read the current line of text from the file up to the newline "\n". (can use std::getline)
+				//	3b.) Exit the loop if nothing to read.
+				std::getline(reader, lineRead);
+				//4.) String compare for the name of what you want. (intially this will be "MESH")[std::strcmp]
+				if (std::strcmp(lineRead.c_str(), "MESH") == 0)
+				{
+					//5.) Read the next line, this is the name of the .h2b file to load in. (duplicates?)
+					std::cout << "FOUND A MESH" << std::endl;
+					std::getline(reader, lineRead);
+					for (int i = 0; i < modelNames.size(); i++)
+					{
+						if (lineRead == modelNames[i])
+							sameModelName = true;
+					}
+					if (sameModelName == false)
+					{
+						std::cout << "Model Name: " << lineRead << std::endl;
+						modelNames.push_back(lineRead);
+
+						GW::MATH::GMATRIXF theNewMatrix;
+
+						//6.) Read the next 4 lines.Each line contains a row of the 4x4 matrix of where the model is.
+						//	6b.) You can walk through the stringand use std::atof / std::stof to grab the floats.
+						//	6c.) Alternatley you could use std::sscanf or just std::string helpers to pull the data.
+						for (int i = 0; i < 4; i++)
+						{
+							std::vector<std::string> lineStrings;	// for separating out the strings
+							std::vector<float> lineFloats;			// for separating out the floats
+
+							std::getline(reader, lineRead);
+							// breaking the matrix into 1.000, 1.000, 1.000, 1.000)>
+							std::stringstream findParen(lineRead);
+							while (std::getline(findParen, lineRead, '('))
+							{
+								lineStrings.push_back(lineRead);
+							}
+							// breaking the matrix into 1.000, 1.000, 1.000, 1.000
+							std::stringstream find2ndParen(lineStrings[1]);
+							while (std::getline(find2ndParen, lineRead, ')'))
+							{
+								lineStrings.push_back(lineRead);
+							}
+							// breaking the matrix into 1.000 1.000 1.000 1.000
+							std::stringstream findFloats(lineStrings[2]);
+							int counter = 3;
+							while (std::getline(findFloats, lineRead, ','))
+							{
+								lineStrings.push_back(lineRead);
+								// convert the strings into a float
+								//lineFloats.push_back(std::stof(lineStrings[counter]));
+								
+								counter++;
+							}
+							int temp = 0;
+							// deposit the information into a new matrix
+							switch (i)
+							{
+							case 0:
+								theNewMatrix.row1.x = lineFloats[0];
+								theNewMatrix.row1.y = lineFloats[1];
+								theNewMatrix.row1.z = lineFloats[2];
+								theNewMatrix.row1.w = lineFloats[3];
+								break;
+							case 1:
+								theNewMatrix.row2.x = lineFloats[0];
+								theNewMatrix.row2.y = lineFloats[1];
+								theNewMatrix.row2.z = lineFloats[2];
+								theNewMatrix.row2.w = lineFloats[3];
+								break;
+							case 2:
+								theNewMatrix.row3.x = lineFloats[0];
+								theNewMatrix.row3.y = lineFloats[1];
+								theNewMatrix.row3.z = lineFloats[2];
+								theNewMatrix.row3.w = lineFloats[3];
+								break;
+							case 3:
+								theNewMatrix.row3.x = lineFloats[0];
+								theNewMatrix.row3.y = lineFloats[1];
+								theNewMatrix.row3.z = lineFloats[2];
+								theNewMatrix.row3.w = lineFloats[3];
+								modelLocations.push_back(theNewMatrix);
+								break;
+							}
+
+						}
+					}
+					else
+					{
+						std::cout << "ERROR: Mesh name " << lineRead << " is a duplicate!" << std::endl;
+					}
+				}
+			}
+			std::cout << "ERROR: File is open - time to close" << std::endl;
+		}
+		else
+		{
+			std::cout << "Could not find file name" << std::endl;
+		}
+		// 8. Close the file when complete
+		reader.close();
+		/// <summary>
+		/// READING FILE END
+		/// </summary>  
+#pragma endregion
 
 
 
-		//Vertex verts[10];// = {
-		//	//{0, 0.5f,  0, 1},
-		//	//{0.5f, -0.5f,  0, 1},
-
-		//	//{-0.5f, -0.5f,  0, 1},
-		//	//{0,   0.5f,  0, 1},
-
-		//	{0.5f, -0.5f,  0, 1}, // HORIZONTAL
-		//	{-0.5f, -0.5f,  0, 1}, // HORIZONTAL
-
-		//	{0.5f, -0.4f,  0, 1}, // HORIZONTAL
-		//	{-0.5f, -0.4f,  0, 1} // HORIZONTAL
-
-		//	// -0.5f, 0.5f,
-		//	//-0.5f, -0.5f,
-
-		//	// 0,   0.5f,
-		//	// -0.5f, 0.5f,
-		//	//-0.5f, -0.5f
 
 
-		//	// orig
-		//	// 0,   0.5f,
-		//	// 0.5f, -0.5f,
-		//	// -0.5f, -0.5f
-
-		//};
 		Vertex verts[104];
 		float vertPointsHoriz = -0.5f;
 		float vertPointsVert = -0.5f;
 
 		for (int i = 0; i < 104; i+=2)
 		{
-
-			//verts[0] = { 0, 0.5f,  0, 1 }; // VERTICAL
-			//verts[1] = { 0.0f, -0.5f,  0, 1 }; // VERTICAL
-
-			//verts[4] = { 0.5f, -0.5f,  0, 1 }; // HORIZONTAL
-			//verts[5] = { -0.5f, vertPoints,  0, 1 }; // HORIZONTAL
 
 			if (i >= 52)
 			{
