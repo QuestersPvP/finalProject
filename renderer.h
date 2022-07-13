@@ -4,8 +4,9 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #include "d3dx12.h" // official helper file provided by microsoft
 
-#include <fstream>
-#include <vector>
+#include <fstream>		// FILE I/O
+#include <vector>		// TO HOLD FILE I/O INFO
+#include "h2bParser.h"	// USED GET MODEL INFO AFTER GameLevel.txt IS READ
 
 using namespace std::chrono;
 // Simple Vertex Shader
@@ -125,6 +126,7 @@ public:
 		//  Part 3c DONE
 		GW::MATH::GVECTORF matrixTransformer;
 
+#pragma region Lab1
 		// LEFT WALL
 		gwGmatrix.IdentityF(gwTempWorldMatrix);
 		gwGmatrix.RotateYGlobalF(gwTempWorldMatrix, DegreeToRadians(90.0f), gwTempWorldMatrix);
@@ -175,6 +177,8 @@ public:
 		matrixTransformer.w = 1.0f;
 		gwGmatrix.TranslateGlobalF(gwTempWorldMatrix, matrixTransformer, gwTempWorldMatrix);
 		gwWorldMatrixSix = gwTempWorldMatrix;
+#pragma endregion
+
 
 		// Part 2e DONE
 		gwGmatrix.IdentityF(gwViewMatrix);
@@ -214,13 +218,9 @@ public:
 		/// READING FILE START
 		/// </summary>
 		#pragma region File I/O
-						// run h2b file parser on the meshes you read in
+		// run h2b file parser on the meshes you read in
 		// array of matrix
 		// parse gamelevel.txt
-		/*
-			7.) After the loop exists you should have collected all the level data, now time to transfer to GPU.
-		*/
-
 		//1.) Use either std::ifstream or FILE * to open the file.
 		std::ifstream reader;
 		std::string lineRead;
@@ -326,15 +326,16 @@ public:
 								theNewMatrix.row4.y = lineFloats[1];
 								theNewMatrix.row4.z = lineFloats[2];
 								theNewMatrix.row4.w = lineFloats[3];
+								std::cout << "Saved MESH matrix to modelLocations vector!" << std::endl;
 								modelLocations.push_back(theNewMatrix);
 								break;
 							}
-
 						}
 					}
 					else
 					{
 						std::cout << "ERROR: Mesh name " << lineRead << " is a duplicate!" << std::endl;
+						sameModelName = false;
 					}
 				}
 			}
@@ -346,6 +347,9 @@ public:
 		}
 		// 8. Close the file when complete
 		reader.close();
+
+		
+
 		/// <summary>
 		/// READING FILE END
 		/// </summary>  
