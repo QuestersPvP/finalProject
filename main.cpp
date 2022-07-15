@@ -26,7 +26,7 @@ int main()
 	if (+win.Create(0, 0, 800, 600, GWindowStyle::WINDOWEDBORDERED))
 	{
 		// Part 1a DONE
-		win.SetWindowName("Benjamin Russell - Lab 2 - DirectX12");
+		win.SetWindowName("Benjamin Russell - Final Project - DirectX12");
 		float clr[] = { 0, 168 / 255.0f, 107 / 255.0f, 1 }; // start with a jade color
 		msgs.Create([&](const GW::GEvent& e) {
 			GW::SYSTEM::GWindow::Events q;
@@ -50,6 +50,7 @@ int main()
 					{
 						cmd->ClearRenderTargetView(rtv, clr, 0, nullptr);
 						cmd->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1, 0, 0, nullptr);
+						//renderer.UpdateCamera();
 						renderer.Render(); // draw
 						d3d12.EndFrame(false);
 						cmd->Release();

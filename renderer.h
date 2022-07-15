@@ -11,6 +11,7 @@
 
 using namespace std::chrono;
 
+#pragma region Shaders
 // Simple Vertex Shader
 const char* vertexShaderSource = R"(
 // an ultra simple hlsl vertex shader
@@ -162,10 +163,13 @@ float4 main(float4 hProjectionSpace : SV_POSITION, float3 normalWorld : NORMAL, 
 	float3 diffuse = meshInfo.material.Kd * saturate(dot(normal,-cameraAndLights.lightDirection.xyz)) * cameraAndLights.lightColor.xyz;
 	float3 specular = meshInfo.material.Ks * max(pow(dot(halfVec, normal), meshInfo.material.Ns), 0) * cameraAndLights.lightColor.xyz; 
 	
-	return float4((ambient+diffuse)+ specular, 0);
+	return float4 (0,0,1,1);
+	//return float4((ambient+diffuse)+ specular, 0);
 	//return float4(ambient + (diffuse + specular) * cameraAndLights.lightColor.xyz, 1); // TODO: Part 1a
 }
 )";
+#pragma endregion
+
 
 float DegreeToRadians(float degree)
 {
@@ -204,6 +208,10 @@ class Renderer
 	// proxy handles
 	GW::SYSTEM::GWindow win;
 	GW::GRAPHICS::GDirectX12Surface d3d;
+
+	GW::INPUT::GInput gInput;
+	GW::INPUT::GController gController;
+	
 	// what we need at a minimum to draw a triangle
 	D3D12_VERTEX_BUFFER_VIEW					vertexView;
 	Microsoft::WRL::ComPtr<ID3D12Resource>		vertexBuffer;
@@ -229,6 +237,9 @@ class Renderer
 	GW::MATH::GVECTORF lightColor;
 	GW::MATH::GVECTORF lightAmbient;
 	GW::MATH::GVECTORF lightPos;
+
+	float mouseYLast = 0.0f;
+	float mouseXLast = 0.0f;
 	unsigned int tempHeight = 0;
 	unsigned int tempWidth = 0;
 	float aspectRatio = 0.0f;
@@ -249,7 +260,7 @@ class Renderer
 	{
 		GW::MATH::GMATRIXF gwWorldMatrix;
 		GW::MATH::GMATRIXF gwWorldMatrixTwo;
-		OBJ_ATTRIBUTES material;
+		H2B::ATTRIBUTES material;
 		unsigned padding[12];
 	};
 
@@ -258,10 +269,17 @@ class Renderer
 		std::string modelNames;						// file path
 		GW::MATH::GMATRIXF modelLocations;			// world matrix of model
 		std::vector<H2B::MESH> modelMeshes;			// mesh information of model
-		std::vector<H2B::MATERIAL> modelMaterial;	// mesh material information
+		std::vector<H2B::MATERIAL> modelMaterial;	// material information
+		//std::vector<H2B::VERTEX> modelVertex;		// vertex information
+		//std::vector<unsigned> modelIndecies;		// index information
+
+		unsigned int vertexBufferStart;				// keep track of models vertex buffer
+		unsigned int indexBufferStart;				// keep track of models index buffer
 	};
 
-	std::vector<ModelInfo> modelInformation;
+	std::vector<ModelInfo> modelInformation;		// keep track of every models information
+	std::vector<H2B::VERTEX> vertexInfo;			// keep track of all vertecies
+	std::vector<unsigned> indexInfo;				// keep track of all indexes
 
 	//UINT8* transferMemoryLocation1;
 	UINT8* transferMemoryLocation;
@@ -278,6 +296,7 @@ public:
 		d3d.GetDevice((void**)&creator);
 		// part 2a DONE
 		// WORLD
+#pragma region Lab 2 Start
 		GW::MATH::GMatrix gwGmatrix;// = gwGmatrix.Create();
 		gwGmatrix.Create();
 		gwGmatrix.IdentityF(gwWorldMatrix);
@@ -296,9 +315,9 @@ public:
 		eye.z = -1.5f;
 		eye.w = 1.0f;
 		GW::MATH::GVECTORF at;
-		at.x = 0.15f;
-		at.y = 0.75f;
-		at.z = 0.0f;
+		at.x = -0.8553; //-0.8553, 0.7554,  0.9219, 1.0000
+		at.y = 0.7554;
+		at.z = 0.9219;
 		at.w = 1.0f;
 		GW::MATH::GVECTORF up;
 		up.x = 0.0f;
@@ -341,19 +360,21 @@ public:
 
 		meshDataText.gwWorldMatrix = gwWorldMatrix;
 		meshDataText.gwWorldMatrixTwo = gwWorldMatrix;
-		meshDataText.material = FSLogo_materials[0].attrib;
+		//meshDataText.material = FSLogo_materials[0].attrib;
 
-		meshDataLogo.material = FSLogo_materials[1].attrib;
+		//meshDataLogo.material = FSLogo_materials[1].attrib;
 		meshDataLogo.gwWorldMatrix = gwWorldMatrix;
 		meshDataLogo.gwWorldMatrixTwo = gwWorldMatrix;
+#pragma endregion
 
 
+
+#pragma region File IO
 		/// <summary>
 		/// READING FILE START
 		/// </summary>
-
-#pragma region File IO
-				// run h2b file parser on the meshes you read in
+		
+		// run h2b file parser on the meshes you read in
 		// array of matrix
 		// parse gamelevel.txt
 		//1.) Use either std::ifstream or FILE * to open the file.
@@ -484,6 +505,20 @@ public:
 					{
 						tempModelInfo.modelMeshes.push_back(gameLevelParse.meshes[v]);
 					}
+					// Get vertecies
+					tempModelInfo.vertexBufferStart = vertexInfo.size();
+					for (int v = 0; v < gameLevelParse.vertexCount; v++)
+					{
+						//tempModelInfo.modelVertex.push_back(gameLevelParse.vertices[v]);
+						vertexInfo.push_back(gameLevelParse.vertices[v]);
+					}
+					// Get Indecies
+					tempModelInfo.indexBufferStart = indexInfo.size();
+					for (int i = 0; i < gameLevelParse.indexCount; i++)
+					{
+						//tempModelInfo.modelIndecies.push_back(gameLevelParse.indices[i]);
+						indexInfo.push_back(gameLevelParse.indices[i]);
+					}
 
 					modelInformation.push_back(tempModelInfo);
 				}
@@ -503,36 +538,70 @@ public:
 		/// </summary>   
 #pragma endregion
 
+		unsigned int vertexSize = (vertexInfo.size() * sizeof(H2B::VERTEX));
+		unsigned int indexSize = (indexInfo.size() * sizeof(unsigned int));
+
 		creator->CreateCommittedResource( // using UPLOAD heap for simplicity
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
-			D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(sizeof(FSLogo_vertices)),
+			D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(vertexSize),
 			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vertexBuffer));
 		// Transfer triangle data to the vertex buffer.
 
 		vertexBuffer->Map(0, &CD3DX12_RANGE(0, 0),
 			reinterpret_cast<void**>(&transferMemoryLocation));
-		memcpy(transferMemoryLocation, FSLogo_vertices, sizeof(FSLogo_vertices));
+		memcpy(transferMemoryLocation, vertexInfo.data(), vertexSize);
 		vertexBuffer->Unmap(0, nullptr);
 		// Create a vertex View to send to a Draw() call.
 		vertexView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-		vertexView.StrideInBytes = sizeof(_OBJ_VEC3_) * 3; // Part 1e orig 2 DONE
-		vertexView.SizeInBytes = sizeof(FSLogo_vertices); // Part 1d DONE
+		vertexView.StrideInBytes = sizeof(H2B::VECTOR) * 3; // Part 1e orig 2 DONE
+		vertexView.SizeInBytes = vertexSize; // Part 1d DONE
 		// Part 1g
 		creator->CreateCommittedResource( // using UPLOAD heap for simplicity
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
-			D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(sizeof(FSLogo_indices)),
+			D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(indexSize),
 			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&indexBuffer));
 		// Transfer triangle data to the vertex buffer.
 		//UINT8* transferMemoryLocation;
 		indexBuffer->Map(0, &CD3DX12_RANGE(0, 0),
 			reinterpret_cast<void**>(&transferMemoryLocation));
-		memcpy(transferMemoryLocation, FSLogo_indices, sizeof(FSLogo_indices));
+		memcpy(transferMemoryLocation, indexInfo.data(), sizeof(indexSize));
 		indexBuffer->Unmap(0, nullptr);
 		//// Create a vertex View to send to a Draw() call.
 		indexView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
 		//indexView.StrideInBytes = sizeof(unsigned int) * 1; // Part 1e orig 2 DONE
 		indexView.Format = DXGI_FORMAT_R32_UINT;
-		indexView.SizeInBytes = sizeof(FSLogo_indices); // Part 1d DONE
+		indexView.SizeInBytes = indexSize; // Part 1d DONE
+
+		//creator->CreateCommittedResource( // using UPLOAD heap for simplicity
+		//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
+		//	D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(sizeof(FSLogo_vertices)),
+		//	D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vertexBuffer));
+		//// Transfer triangle data to the vertex buffer.
+
+		//vertexBuffer->Map(0, &CD3DX12_RANGE(0, 0),
+		//	reinterpret_cast<void**>(&transferMemoryLocation));
+		//memcpy(transferMemoryLocation, FSLogo_vertices, sizeof(FSLogo_vertices));
+		//vertexBuffer->Unmap(0, nullptr);
+		//// Create a vertex View to send to a Draw() call.
+		//vertexView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
+		//vertexView.StrideInBytes = sizeof(_OBJ_VEC3_) * 3; // Part 1e orig 2 DONE
+		//vertexView.SizeInBytes = sizeof(FSLogo_vertices); // Part 1d DONE
+		//// Part 1g
+		//creator->CreateCommittedResource( // using UPLOAD heap for simplicity
+		//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
+		//	D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(sizeof(FSLogo_indices)),
+		//	D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&indexBuffer));
+		//// Transfer triangle data to the vertex buffer.
+		////UINT8* transferMemoryLocation;
+		//indexBuffer->Map(0, &CD3DX12_RANGE(0, 0),
+		//	reinterpret_cast<void**>(&transferMemoryLocation));
+		//memcpy(transferMemoryLocation, FSLogo_indices, sizeof(FSLogo_indices));
+		//indexBuffer->Unmap(0, nullptr);
+		////// Create a vertex View to send to a Draw() call.
+		//indexView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
+		////indexView.StrideInBytes = sizeof(unsigned int) * 1; // Part 1e orig 2 DONE
+		//indexView.Format = DXGI_FORMAT_R32_UINT;
+		//indexView.SizeInBytes = sizeof(FSLogo_indices); // Part 1d DONE
 
 		// TODO: Part 2d
 		IDXGISwapChain4* temp;
@@ -545,7 +614,7 @@ public:
 		creator->CreateCommittedResource( // using UPLOAD heap for simplicity
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(sizeof(SCENE_DATA) + FSLogo_meshcount
+			&CD3DX12_RESOURCE_DESC::Buffer(sizeof(SCENE_DATA) + 1
 				* sizeof(MESH_DATA) * swapChainDesc.BufferCount),
 			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&constantBuffer));
 
@@ -554,30 +623,29 @@ public:
 			reinterpret_cast<void**>(&transferMemoryLocation));
 
 		unsigned int frame_meshdata = 0;
+		//					//swapChainDesc.BufferCount
+		//for (int i = 0; i < 2; i++)
+		//{
+		//	memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
+		//	frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
+		//	memcpy(&transferMemoryLocation[frame_meshdata], &meshDataText, sizeof(MESH_DATA)); // SCENE DATA
+		//	frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
+		//	memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
+		//	frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
+		//}
 
-		for (int i = 0; i < swapChainDesc.BufferCount; i++)
-		{
-			memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
-			frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
-			memcpy(&transferMemoryLocation[frame_meshdata], &meshDataText, sizeof(MESH_DATA)); // SCENE DATA
-			frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-			memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
-			frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-		}
+		//meshDataLogo.material = modelInformation[0].modelMaterial[0].attrib;
+		//meshDataLogo.gwWorldMatrix = gwWorldMatrix;
+		//meshDataLogo.gwWorldMatrixTwo = gwWorldMatrix;
 
-		//memcpy(transferMemoryLocation, &sceneData, sizeof(SCENE_DATA)); // SCENE DATA 
-		//memcpy(transferMemoryLocation + sizeof(SCENE_DATA), &meshData, sizeof(MESH_DATA)); // MESH DATA
-		//memcpy(transferMemoryLocation + sizeof(SCENE_DATA) + sizeof(MESH_DATA), &meshData, sizeof(MESH_DATA)); // MESH DATA
-		//memcpy(transferMemoryLocation
-		//	+ sizeof(SCENE_DATA) + sizeof(MESH_DATA) + sizeof(MESH_DATA),
-		//	&sceneData, sizeof(SCENE_DATA)); // SCENE DATA
-		//memcpy(transferMemoryLocation
-		//	+ sizeof(SCENE_DATA) + sizeof(MESH_DATA) + sizeof(MESH_DATA) + sizeof(SCENE_DATA),
-		//	&meshData, sizeof(MESH_DATA)); // MESH DATA
-		//memcpy(transferMemoryLocation
-		//	+ sizeof(SCENE_DATA) + sizeof(MESH_DATA) + sizeof(MESH_DATA) + sizeof(SCENE_DATA) + sizeof(MESH_DATA),
-		//	&meshData, sizeof(MESH_DATA)); // MESH DATA
-		//constantBuffer->Unmap(0, nullptr);
+		meshDataLogo.material = modelInformation[0].modelMaterial[0].attrib;
+		meshDataLogo.gwWorldMatrix = modelInformation[0].modelLocations;
+
+		memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
+		frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
+		memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
+		//frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
+
 
 		//// Create a vertex View to send to a Draw() call.
 		constantView.BufferLocation = constantBuffer->GetGPUVirtualAddress();
@@ -635,20 +703,8 @@ public:
 				D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
 			}
 		};
-		//	D3D12_INPUT_ELEMENT_DESC format[] = {
-		//{
-		//	"UVMAP", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
-		//	D3D12_APPEND_ALIGNED_ELEMENT,
-		//	D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
-		//}
-		//	};
-		//	D3D12_INPUT_ELEMENT_DESC format[] = {
-		//{
-		//	"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
-		//	D3D12_APPEND_ALIGNED_ELEMENT,
-		//	D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
-		//}
-		//	};
+
+
 			// TODO: Part 2g
 		CD3DX12_ROOT_PARAMETER rootParameters[2];
 		rootParameters[0].InitAsConstantBufferView(0, 0);
@@ -694,7 +750,7 @@ public:
 		//GW::MATH::GMatrix gwGmatrix;
 		//gwWorldMatrix
 		//gwCopyMatrix = gwWorldMatrix;
-		meshDataLogo.gwWorldMatrix = UpdateMatrix(meshDataLogo.gwWorldMatrixTwo);
+		//meshDataLogo.gwWorldMatrix = UpdateMatrix(meshDataLogo.gwWorldMatrixTwo);
 		//meshDataLogo.gwWorldMatrix = gwWorldMatrix;
 		// TODO: Part 4d
 		// grab the context & render target
@@ -711,47 +767,42 @@ public:
 		unsigned int frame_scenedata = 0;
 		unsigned int frame_meshdata = 0;// = sizeof(SCENE_DATA);
 
-		//unsigned int frame0OffsetOne = 0;
-		//unsigned int frame0OffsetTwo = 0;
-		//unsigned int frame0OffsetThree = 0;
-		//unsigned int frame1OffsetOne = 0;
-		//unsigned int frame1OffsetTwo = 0;
-		//unsigned int frame1OffsetThree = 0;
-
 		constantBuffer->Map(0, &CD3DX12_RANGE(0, 0),
 			reinterpret_cast<void**>(&transferMemoryLocation));
 
 
 
-		for (int i = 0; i < swapChainDesc.BufferCount; i++)
-		{
+		//for (int i = 0; i < swapChainDesc.BufferCount; i++)
+		//{
 
-			memcpy(&transferMemoryLocation[frame_scenedata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
-			//if (i == 0) { frame0OffsetOne = 0; } else { frame1OffsetOne = frame_meshdata; }
-			frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
-			memcpy(&transferMemoryLocation[frame_meshdata], &meshDataText, sizeof(MESH_DATA)); // SCENE DATA
-			//if (i == 0) { frame0OffsetTwo = frame_meshdata; } else { frame1OffsetTwo = frame_meshdata; }
-			frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-			memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
-			//if (i == 0) { frame0OffsetThree = frame_meshdata; } else { frame1OffsetThree = frame_meshdata; }
-			frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-		}
+		//	memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
+		//	frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
+		//	memcpy(&transferMemoryLocation[frame_meshdata], &meshDataText, sizeof(MESH_DATA)); // SCENE DATA
+		//	frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
+		//	memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
+		//	frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
+		//}
 
-		constantBuffer->Unmap(0, nullptr);
+		memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
+		frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
+		memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
+		//frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
 
 		//memcpy(transferMemoryLocation, &sceneData, sizeof(SCENE_DATA)); // SCENE DATA 
 		////memcpy(transferMemoryLocation + sizeof(SCENE_DATA), &meshData, sizeof(MESH_DATA)); // MESH DATA
-		//memcpy(&transferMemoryLocation[frame_meshdata], &meshData, sizeof(MESH_DATA)); // MESH DATA
-		//memcpy(transferMemoryLocation + sizeof(SCENE_DATA) + sizeof(MESH_DATA), &meshData, sizeof(MESH_DATA)); // MESH DATA
+		//memcpy(&transferMemoryLocation[frame_meshdata], &meshDataText, sizeof(MESH_DATA)); // MESH DATA
+		//memcpy(transferMemoryLocation + sizeof(SCENE_DATA) + sizeof(MESH_DATA), &meshDataLogo, sizeof(MESH_DATA)); // MESH DATA
 		//memcpy(transferMemoryLocation
 		//	+ sizeof(SCENE_DATA) + sizeof(MESH_DATA) + sizeof(MESH_DATA),
 		//	&sceneData, sizeof(SCENE_DATA)); // SCENE DATA
 		//memcpy(transferMemoryLocation
 		//	+ sizeof(SCENE_DATA) + sizeof(MESH_DATA) + sizeof(MESH_DATA) + sizeof(SCENE_DATA),
-		//	&meshData, sizeof(MESH_DATA)); // MESH DATA
+		//	&meshDataText, sizeof(MESH_DATA)); // MESH DATA
 		//memcpy(transferMemoryLocation
 		//	+ sizeof(SCENE_DATA) + sizeof(MESH_DATA) + sizeof(MESH_DATA) + sizeof(SCENE_DATA) + sizeof(MESH_DATA),
-		//	&meshData, sizeof(MESH_DATA)); // MESH DATA
+		//	&meshDataLogo, sizeof(MESH_DATA)); // MESH DATA
+
+		constantBuffer->Unmap(0, nullptr);
 
 
 		cmd->SetDescriptorHeaps(0, &descriptorHeap);
@@ -768,24 +819,27 @@ public:
 		// TODO: Part 3b
 
 		cmd->SetGraphicsRootConstantBufferView(0, constantBuffer->GetGPUVirtualAddress()); // SCENE_DATA register
-		for (int i = 0; i < swapChainDesc.BufferCount; i++)
-		{
+		cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA));
+		//cmd->DrawIndexedInstanced(modelInformation[0].modelMeshes[0].drawInfo.indexCount, 1, modelInformation[0].modelMeshes[0].drawInfo.indexOffset, 0, 0);
+		cmd->DrawInstanced(778, 1, 0, 0);
+		//for (int i = 0; i < swapChainDesc.BufferCount; i++)
+		//{
 
-			if (i == 1)
-			{
-				// FULLSAIL LOGO
-				//meshData.material.Kd = { (1,1,1) };
-				cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA) + sizeof(MESH_DATA));
-				cmd->DrawIndexedInstanced(FSLogo_meshes[1].indexCount, 1, FSLogo_meshes[1].indexOffset, 0, 0);
-			}
-			else if (i == 0)
-			{
-				// FULLSAIL TEXT
-				//meshData.material.Kd = { (0,1,0) };
-				cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA));
-				cmd->DrawIndexedInstanced(FSLogo_meshes[0].indexCount, 1, FSLogo_meshes[0].indexOffset, 0, 0);
-			}
-		}
+		//	if (i == 1)
+		//	{
+		//		// FULLSAIL LOGO
+		//		//meshData.material.Kd = { (1,1,1) };
+		//		cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA) + sizeof(MESH_DATA));
+		//		cmd->DrawIndexedInstanced(FSLogo_meshes[1].indexCount, 1, FSLogo_meshes[1].indexOffset, 0, 0);
+		//	}
+		//	else if (i == 0)
+		//	{
+		//		// FULLSAIL TEXT
+		//		//meshData.material.Kd = { (0,1,0) };
+		//		cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA));
+		//		cmd->DrawIndexedInstanced(FSLogo_meshes[0].indexCount, 1, FSLogo_meshes[0].indexOffset, 0, 0);
+		//	}
+		//}
 		//cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(MESH_DATA)); // MESH_DATA register
 		//cmd->DrawIndexedInstanced(FSLogo_meshes[0].indexCount, 1, FSLogo_meshes[0].indexOffset, 0, 0);
 		//cmd->DrawIndexedInstanced(FSLogo_meshes[1].indexCount, 1, FSLogo_meshes[1].indexOffset, 0, 0);
@@ -798,6 +852,124 @@ public:
 		// release temp handles
 		cmd->Release();
 	}
+
+	void UpdateCamera()
+	{
+		high_resolution_clock::time_point timeStart = high_resolution_clock::now();
+		duration<double> timePassed = duration_cast<duration<double>>(timeStart - timeEnd);
+
+		//std::cout << timePassed.count() << std::endl;
+
+		GW::MATH::GMatrix gwGmatrix;// = gwGmatrix.Create();
+		gwGmatrix.Create();
+		gwGmatrix.InverseF(sceneData.gwViewMatrix, sceneData.gwViewMatrix);
+		unsigned int controllerIndex = 0;
+		GW::MATH::GMATRIXF tempMatrix;
+		gwGmatrix.IdentityF(tempMatrix);
+
+		const float cameraVertSpeed = 0.3f;
+		float changeYPos, spaceOutput, rTriggerOutput, lTriggerOutput, shiftOutput,
+			wOutput, sOutput, lStickYOutput, dOutput, aOutput, lStickXOutput,
+			mouseDeltaX, mouseDeltaY, frameSpeed, rStickYOutput, rStickXOutput;
+		bool controllerCheck;
+
+		// CAMERA UP / DOWN CODE
+		gInput.GetState(G_KEY_SPACE, spaceOutput);
+		gInput.GetState(G_KEY_LEFTSHIFT, shiftOutput);
+		gController.IsConnected(0, controllerCheck);
+		if (controllerCheck)
+		{
+			gController.GetState(0, G_RIGHT_THUMB_BTN, rTriggerOutput);
+			gController.GetState(0, G_LEFT_THUMB_BTN, lTriggerOutput);
+		}
+		else
+		{
+			lTriggerOutput = 0.0f;
+			rTriggerOutput = 0.0f;
+		}
+		changeYPos = spaceOutput - shiftOutput + rTriggerOutput - lTriggerOutput;
+		sceneData.gwViewMatrix.row4.y += (changeYPos * cameraVertSpeed) * timePassed.count();
+		// CAMERA UP / DOWN CODE
+
+		// CAMERA STRAFE CODE
+		gInput.GetState(G_KEY_W, wOutput);
+		gInput.GetState(G_KEY_S, sOutput);
+		gInput.GetState(G_KEY_D, dOutput);
+		gInput.GetState(G_KEY_A, aOutput);
+		if (controllerCheck)
+		{
+			//gController.CONTRO
+			gController.GetState(0, G_LY_AXIS, lStickYOutput);
+			gController.GetState(0, G_LX_AXIS, lStickXOutput);
+		}
+		else
+		{
+			lStickXOutput = 0.0f;
+			lStickYOutput = 0.0f;
+		}
+
+		frameSpeed = cameraVertSpeed * timePassed.count();
+		float zChange;
+		zChange = wOutput - sOutput + lStickYOutput + lStickYOutput;
+		float xChange;
+		xChange = dOutput - aOutput + lStickXOutput + lStickXOutput;
+
+		GW::MATH::GVECTORF matrixTransformer;
+		matrixTransformer.x = xChange * timePassed.count();
+		matrixTransformer.y = 0.0f;
+		matrixTransformer.z = zChange * timePassed.count();
+		matrixTransformer.w = 1.0f;
+		gwGmatrix.TranslateLocalF(sceneData.gwViewMatrix, matrixTransformer, sceneData.gwViewMatrix);
+		// CAMERA STRAFE CODE
+
+		// CAMERA TILT CODE
+		if (controllerCheck)
+		{
+			//gController.CONTRO
+			gController.GetState(0, G_RY_AXIS, rStickYOutput);
+			gController.GetState(0, G_RX_AXIS, rStickXOutput);
+		}
+		else
+		{
+			rStickXOutput = 0.0f;
+			rStickYOutput = 0.0f;
+		}
+
+		float mouseSpeed = 3.14 * timePassed.count();
+		gInput.GetMouseDelta(mouseDeltaX, mouseDeltaY);
+		//mouseDeltaX = mouseDeltaX - mouseXLast;
+		//mouseDeltaY = mouseDeltaY - mouseYLast;
+		if (mouseDeltaX != mouseXLast && mouseDeltaY != mouseYLast)
+		{
+			float pitch = 65 * mouseDeltaY / (tempHeight + rStickYOutput) * mouseSpeed;
+			float yaw = 65 * aspectRatio * mouseDeltaX / (tempWidth + rStickXOutput) * mouseSpeed;
+			gwGmatrix.IdentityF(tempMatrix);
+			gwGmatrix.RotationYawPitchRollF(0, pitch, 0, tempMatrix);
+			gwGmatrix.MultiplyMatrixF(tempMatrix, sceneData.gwViewMatrix, sceneData.gwViewMatrix);
+			gwGmatrix.IdentityF(tempMatrix);
+			gwGmatrix.RotationYawPitchRollF(yaw, 0, 0, tempMatrix);
+			// SAVE CAMERA POS
+			matrixTransformer.x = sceneData.gwViewMatrix.row4.x;
+			matrixTransformer.y = sceneData.gwViewMatrix.row4.y;
+			matrixTransformer.z = sceneData.gwViewMatrix.row4.z;
+			matrixTransformer.w = sceneData.gwViewMatrix.row4.w;
+			gwGmatrix.MultiplyMatrixF(sceneData.gwViewMatrix, tempMatrix, sceneData.gwViewMatrix);
+			// RESTORE CAMERA POS
+			sceneData.gwViewMatrix.row4.x = matrixTransformer.x;
+			sceneData.gwViewMatrix.row4.y = matrixTransformer.y;
+			sceneData.gwViewMatrix.row4.z = matrixTransformer.z;
+			sceneData.gwViewMatrix.row4.w = matrixTransformer.w;
+			//gwViewMatrix = gwViewMatrixCopy;
+		}
+		//gwViewMatrixCopy = gwViewMatrix;
+		mouseXLast = mouseDeltaX;
+		mouseYLast = mouseDeltaY;
+		// CAMERA TILT CODE
+
+		timeEnd = high_resolution_clock::now();
+		gwGmatrix.InverseF(sceneData.gwViewMatrix, sceneData.gwViewMatrix);
+	}
+
 	~Renderer()
 	{
 		// ComPtr will auto release so nothing to do here 
