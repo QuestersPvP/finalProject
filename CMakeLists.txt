@@ -23,6 +23,7 @@ add_executable (Assignment_1_D3D12
 	main.cpp
 	renderer.h
 	h2bParser.h
+	RH.h
 	${VERTEX_SHADERS}
 	${PIXEL_SHADERS}
 )

@@ -12,6 +12,7 @@
 // With what we want & what we don't defined we can include the API
 #include "../gateware/Gateware/Gateware.h"
 #include "renderer.h"
+#include "RH.h"
 // open some namespaces to compact the code a bit
 using namespace GW;
 using namespace CORE;
