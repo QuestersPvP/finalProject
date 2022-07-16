@@ -10,165 +10,6 @@
 
 using namespace std::chrono;
 
-#pragma region Shaders
-// Simple Vertex Shader
-const char* vertexShaderSource = R"(
-// an ultra simple hlsl vertex shader
-// TODO: Part 2i
-#pragma pack_matrix(row_major)
-
-// TODO: Part 2b
-struct OBJ_ATTRIBUTES
-{
-	float3    Kd; // diffuse reflectivity
-	float	    d; // dissolve (transparency) 
-	float3    Ks; // specular reflectivity
-	float       Ns; // specular exponent
-	float3    Ka; // ambient reflectivity
-	float       sharpness; // local reflection map sharpness
-	float3    Tf; // transmission filter
-	float       Ni; // optical density (index of refraction)
-	float3    Ke; // emissive reflectivity
-	uint    illum; // illumination model
-};
-struct SCENE_DATA
-{
-	float4 lightDirection;
-	float4 lightColor;
-	float4 lightAmbient;
-	float4 lightPos;
-	float4 camPos;
-	float4x4 gwViewMatrix;
-	float4x4 gwProjectionMatrix;
-	float4 padding[3];
-};
-struct MESH_DATA
-{
-	float4x4 gwWorldMatrix;
-	float4x4 gwWorldMatrixTwo;
-	OBJ_ATTRIBUTES material;
-	uint padding[12];
-};
-
-ConstantBuffer<SCENE_DATA> cameraAndLights : register(b0, Space0);
-ConstantBuffer<MESH_DATA> meshInfo : register(b1, Space0);
-// TODO: Part 4f
-// TODO: Part 4a
-struct OUTPUT_TO_RASTERIZER
-{
-	float4 hProjectionSpace : SV_POSITION;
-	float3 normalWorld : NORMAL;
-	float3 positionWorld : WORLD;
-};
-// TODO: Part 1f
-// TODO: Part 4b
-OUTPUT_TO_RASTERIZER main(float4 inputVertex : POSITION, float4 inputVertexUV : UVMAP, float4 inputVertexN : NORMAL)
-{
-	// TODO: Part 1h
-	//inputVertex.y -= 0.75f;
-	//inputVertex.z += 0.75f;
-	
-	OUTPUT_TO_RASTERIZER rValue;	
-
-	inputVertex = mul(inputVertex, meshInfo.gwWorldMatrix);
-
-	float4 globalMatrix = inputVertex;	
-
-	inputVertex = mul(inputVertex, cameraAndLights.gwViewMatrix);
-	inputVertex = mul(inputVertex, cameraAndLights.gwProjectionMatrix);
-
-	rValue.hProjectionSpace = inputVertex;
-	rValue.normalWorld = mul(inputVertexN, meshInfo.gwWorldMatrix).xyz; 
-	rValue.positionWorld = globalMatrix; 
-
-	return rValue;
-	// TODO: Part 2i
-
-	// TODO: Part 4b
-}
-)";
-//float4 main(float3 inputVertex : POSITION, float3 inputVertexUV : UVMAP, float3 inputVertexN : NORMAL) : SV_POSITION
-//{
-//	// Part 1h
-// 	return float4(inputVertex, 0, 1); // origional
-//	return float4(inputVertex, inputVertexUV, inputVertexN, 1);
-//// TODO: Part 2i
-//// TODO: Part 4b
-//}
-
-// Simple Pixel Shader
-const char* pixelShaderSource = R"(
-// an ultra simple hlsl pixel shader
-// TODO: Part 2b
-struct OBJ_ATTRIBUTES
-{
-	float3    Kd; // diffuse reflectivity
-	float	    d; // dissolve (transparency) 
-	float3    Ks; // specular reflectivity
-	float       Ns; // specular exponent
-	float3    Ka; // ambient reflectivity
-	float       sharpness; // local reflection map sharpness
-	float3    Tf; // transmission filter
-	float       Ni; // optical density (index of refraction)
-	float3    Ke; // emissive reflectivity
-	uint    illum; // illumination model
-};
-struct SCENE_DATA
-{
-	float4 lightDirection;
-	float4 lightColor;
-	float4 lightAmbient;
-	float4 lightPos;
-	float4 camPos;
-	float4x4 gwViewMatrix;
-	float4x4 gwProjectionMatrix;
-	float4 padding[3];
-};
-struct MESH_DATA
-{
-	float4x4 gwWorldMatrix;
-	float4x4 gwWorldMatrixTwo;
-	OBJ_ATTRIBUTES material;
-	uint padding[12];
-};
-
-ConstantBuffer<SCENE_DATA> cameraAndLights : register(b0, Space0);
-ConstantBuffer<MESH_DATA> meshInfo : register(b1, Space0);
-// TODO: Part 4f
-// TODO: Part 4b
-struct OUTPUT_TO_RASTERIZER
-{
-	float4 hProjectionSpace : SV_POSITION;
-	float3 normalWorld : NORMAL;
-	float3 positionWorld : WORLD;
-};
-
-float4 main(float4 hProjectionSpace : SV_POSITION, float3 normalWorld : NORMAL, float3 positionWorld : WORLD) : SV_TARGET 
-{	
-
-//  VIEWDIR = NORMALIZE( CAMWORLDPOS – SURFACEPOS ) 
-//  HALFVECTOR = NORMALIZE(( -LIGHTDIR ) + VIEWDIR ) 
-//  INTENSITY = MAX( CLAMP( DOT( NORMAL, HALFVECTOR ))SPECULARPOWER , 0 )
-//  REFLECTEDLIGHT = LIGHTCOLOR * SPECULARINTENSITY * INTENSITY 
-
-
-	float3 normal = normalize(normalWorld).xyz;
-	float3 view = normalize(cameraAndLights.camPos.xyz - positionWorld.xyz );
-	//float3 reflectivity = reflect( (-view), normal) ;
-	float3 halfVec = normalize((-cameraAndLights.lightDirection.xyz) + view);
-	//float3 highlight = normalize(-cameraAndLights.lightDirection.xyz + view + reflectivity); // + R
-	
-	float3 ambient = meshInfo.material.Ka * cameraAndLights.lightAmbient.xyz * 0.65f;
-	float3 diffuse = meshInfo.material.Kd * saturate(dot(normal,-cameraAndLights.lightDirection.xyz)) * cameraAndLights.lightColor.xyz;
-	float3 specular = meshInfo.material.Ks * max(pow(dot(halfVec, normal), meshInfo.material.Ns), 0) * cameraAndLights.lightColor.xyz; 
-	
-	return float4 (0,0,1,1);
-	//return float4((ambient+diffuse)+ specular, 0);
-	//return float4(ambient + (diffuse + specular) * cameraAndLights.lightColor.xyz, 1); // TODO: Part 1a
-}
-)";
-#pragma endregion
-
 // Creation, Rendering & Cleanup
 class Renderer
 {
@@ -182,20 +23,28 @@ class Renderer
 	// what we need at a minimum to draw a triangle
 	D3D12_VERTEX_BUFFER_VIEW					vertexView;
 	Microsoft::WRL::ComPtr<ID3D12Resource>		vertexBuffer;
-	//  Part 1g DONE
+
 	D3D12_INDEX_BUFFER_VIEW						indexView;
 	Microsoft::WRL::ComPtr<ID3D12Resource>		indexBuffer;
-	// TODO: Part 2c
+
 	D3D12_CONSTANT_BUFFER_VIEW_DESC				constantView;
 	Microsoft::WRL::ComPtr<ID3D12Resource>		constantBuffer;
-	// TODO: Part 2e
-	//ID3D12DescriptorHeap*						descriptorHeap;
 	D3D12_DESCRIPTOR_HEAP_DESC					descriptorView;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>descriptorHeap;
 
+	D3D12_SHADER_RESOURCE_VIEW_DESC				structuredViewMatrix;
+	Microsoft::WRL::ComPtr<ID3D12Resource>		structuredBufferMatrix;
+	D3D12_SHADER_RESOURCE_VIEW_DESC				structuredViewMaterial;
+	Microsoft::WRL::ComPtr<ID3D12Resource>		structuredBufferMaterial;
+
+
+	D3D12_DESCRIPTOR_HEAP_DESC					structuredDescriptorView;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>structuredHeap;
+
+
 	Microsoft::WRL::ComPtr<ID3D12RootSignature>	rootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState>	pipeline;
-	// Part 2a DONE
+
 	GW::MATH::GMATRIXF gwCopyMatrix;
 	GW::MATH::GMATRIXF gwWorldMatrix;
 	GW::MATH::GMATRIXF gwViewMatrix;
@@ -217,6 +66,7 @@ class Renderer
 	UINT8* transferMemoryLocation;
 	MESH_DATA meshDataText;
 	MESH_DATA meshDataLogo;
+	ModelLocation tempLocation;
 	SCENE_DATA sceneData;
 	// TODO: Part 4f
 public:
@@ -227,6 +77,11 @@ public:
 		ID3D12Device* creator;
 		d3d.GetDevice((void**)&creator);
 		// part 2a DONE
+		std::string vertexShaderString;
+		std::string pixelShaderString;
+		vertexShaderString = ShaderAsString(vertexShader);
+		pixelShaderString = ShaderAsString(pixelShader);
+
 		// WORLD
 #pragma region Lab 2 Start
 		GW::MATH::GMatrix gwGmatrix;// = gwGmatrix.Create();
@@ -284,11 +139,11 @@ public:
 		// TODO: part 2b
 		sceneData.gwProjectionMatrix = gwProjectionMatrix;
 		sceneData.gwViewMatrix = gwViewMatrix;
-		sceneData.lightColor = lightColor;
-		sceneData.lightDirection = lightDirection;
-		sceneData.lightAmbient = lightAmbient;
-		sceneData.lightPos = lightPos;
-		sceneData.camPos = eye;
+		//sceneData.lightColor = lightColor;
+		//sceneData.lightDirection = lightDirection;
+		//sceneData.lightAmbient = lightAmbient;
+		//sceneData.lightPos = lightPos;
+		//sceneData.camPos = eye;
 
 		meshDataText.gwWorldMatrix = gwWorldMatrix;
 		meshDataText.gwWorldMatrixTwo = gwWorldMatrix;
@@ -326,47 +181,14 @@ public:
 			D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(indexSize),
 			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&indexBuffer));
 		// Transfer triangle data to the vertex buffer.
-		//UINT8* transferMemoryLocation;
 		indexBuffer->Map(0, &CD3DX12_RANGE(0, 0),
 			reinterpret_cast<void**>(&transferMemoryLocation));
 		memcpy(transferMemoryLocation, indexInfo.data(), sizeof(indexSize));
 		indexBuffer->Unmap(0, nullptr);
 		//// Create a vertex View to send to a Draw() call.
 		indexView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
-		//indexView.StrideInBytes = sizeof(unsigned int) * 1; // Part 1e orig 2 DONE
 		indexView.Format = DXGI_FORMAT_R32_UINT;
 		indexView.SizeInBytes = indexSize; // Part 1d DONE
-
-		//creator->CreateCommittedResource( // using UPLOAD heap for simplicity
-		//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
-		//	D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(sizeof(FSLogo_vertices)),
-		//	D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vertexBuffer));
-		//// Transfer triangle data to the vertex buffer.
-
-		//vertexBuffer->Map(0, &CD3DX12_RANGE(0, 0),
-		//	reinterpret_cast<void**>(&transferMemoryLocation));
-		//memcpy(transferMemoryLocation, FSLogo_vertices, sizeof(FSLogo_vertices));
-		//vertexBuffer->Unmap(0, nullptr);
-		//// Create a vertex View to send to a Draw() call.
-		//vertexView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-		//vertexView.StrideInBytes = sizeof(_OBJ_VEC3_) * 3; // Part 1e orig 2 DONE
-		//vertexView.SizeInBytes = sizeof(FSLogo_vertices); // Part 1d DONE
-		//// Part 1g
-		//creator->CreateCommittedResource( // using UPLOAD heap for simplicity
-		//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
-		//	D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(sizeof(FSLogo_indices)),
-		//	D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&indexBuffer));
-		//// Transfer triangle data to the vertex buffer.
-		////UINT8* transferMemoryLocation;
-		//indexBuffer->Map(0, &CD3DX12_RANGE(0, 0),
-		//	reinterpret_cast<void**>(&transferMemoryLocation));
-		//memcpy(transferMemoryLocation, FSLogo_indices, sizeof(FSLogo_indices));
-		//indexBuffer->Unmap(0, nullptr);
-		////// Create a vertex View to send to a Draw() call.
-		//indexView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
-		////indexView.StrideInBytes = sizeof(unsigned int) * 1; // Part 1e orig 2 DONE
-		//indexView.Format = DXGI_FORMAT_R32_UINT;
-		//indexView.SizeInBytes = sizeof(FSLogo_indices); // Part 1d DONE
 
 		// TODO: Part 2d
 		IDXGISwapChain4* temp;
@@ -376,10 +198,11 @@ public:
 
 		//&CD3DX12_RESOURCE_DESC::Buffer(sizeof(SCENE_DATA) + FSLogo_meshcount * sizeof(MESH_DATA) * temp1.BufferCount);
 
+#pragma region ConstantBuffer
 		creator->CreateCommittedResource( // using UPLOAD heap for simplicity
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(sizeof(SCENE_DATA) + 1
+			&CD3DX12_RESOURCE_DESC::Buffer(sizeof(SCENE_DATA) + 1 // need to replace with meshCount?
 				* sizeof(MESH_DATA) * swapChainDesc.BufferCount),
 			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&constantBuffer));
 
@@ -388,28 +211,10 @@ public:
 			reinterpret_cast<void**>(&transferMemoryLocation));
 
 		unsigned int frame_meshdata = 0;
-		//					//swapChainDesc.BufferCount
-		//for (int i = 0; i < 2; i++)
-		//{
-		//	memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
-		//	frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
-		//	memcpy(&transferMemoryLocation[frame_meshdata], &meshDataText, sizeof(MESH_DATA)); // SCENE DATA
-		//	frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-		//	memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
-		//	frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-		//}
-
-		//meshDataLogo.material = modelInformation[0].modelMaterial[0].attrib;
-		//meshDataLogo.gwWorldMatrix = gwWorldMatrix;
-		//meshDataLogo.gwWorldMatrixTwo = gwWorldMatrix;
-
-		meshDataLogo.material = modelInformation[0].modelMaterial[0].attrib;
-		meshDataLogo.gwWorldMatrix = modelInformation[0].modelLocations;
 
 		memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
-		frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
-		memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
-		//frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
+
+		constantBuffer->Unmap(0, nullptr);
 
 
 		//// Create a vertex View to send to a Draw() call.
@@ -427,13 +232,75 @@ public:
 		creator->CreateDescriptorHeap(&descriptorView, IID_PPV_ARGS(&descriptorHeap));
 		// TODO: Part 2f
 		creator->CreateConstantBufferView(&constantView, descriptorHeap->GetCPUDescriptorHandleForHeapStart());
+#pragma endregion
+
+#pragma region StructuredBuffer
+		// model locations resource
+		creator->CreateCommittedResource( // using UPLOAD heap for simplicity
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(sizeof(ModelLocation) * modelLocations.gwWorldMatrix.size()), //* modelLocations.gwWorldMatrix.size()
+			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&structuredBufferMatrix));
+
+		// model material resource
+		creator->CreateCommittedResource( // using UPLOAD heap for simplicity
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(sizeof(ModelMaterial) * modelMaterials.material.size()), //* modelMaterials.material.size()
+			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&structuredBufferMaterial));
+
+
+		// Transfer triangle data to the vertex buffer.
+		structuredBufferMatrix->Map(0, &CD3DX12_RANGE(0, 0),
+			reinterpret_cast<void**>(&transferMemoryLocation));
+		// memcopy model matrixes
+		memcpy(&transferMemoryLocation, &modelLocations.gwWorldMatrix, sizeof(ModelLocation)); // SCENE DATA
+		structuredBufferMatrix->Unmap(0, nullptr);
+
+		// Transfer triangle data to the vertex buffer.
+		structuredBufferMaterial->Map(0, &CD3DX12_RANGE(0, 0),
+			reinterpret_cast<void**>(&transferMemoryLocation));
+		// memcopy model materials
+		memcpy(&transferMemoryLocation, &modelMaterials.material, sizeof(ModelMaterial)); // SCENE DATA
+		structuredBufferMaterial->Unmap(0, nullptr);
+
+		// set matrix buffer and format
+		structuredViewMatrix.Buffer.StructureByteStride = sizeof(ModelLocation);
+		structuredViewMatrix.Buffer.FirstElement = 0;
+		structuredViewMatrix.Buffer.NumElements = modelLocations.gwWorldMatrix.size();
+		structuredViewMatrix.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+		structuredViewMatrix.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		structuredViewMatrix.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		structuredViewMatrix.Format = DXGI_FORMAT_UNKNOWN;
+		// set material buffer and format
+		structuredViewMaterial.Buffer.StructureByteStride = sizeof(ModelMaterial);
+		structuredViewMaterial.Buffer.FirstElement = 0;
+		structuredViewMaterial.Buffer.NumElements = modelLocations.gwWorldMatrix.size();
+		structuredViewMaterial.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+		structuredViewMaterial.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		structuredViewMaterial.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		structuredViewMaterial.Format = DXGI_FORMAT_UNKNOWN;
+		// create the heap
+		structuredDescriptorView.NumDescriptors = 1;
+		structuredDescriptorView.NodeMask = 0;
+		structuredDescriptorView.Type = D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		structuredDescriptorView.Flags = D3D12_DESCRIPTOR_HEAP_FLAGS::D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+		creator->CreateDescriptorHeap(&structuredDescriptorView, IID_PPV_ARGS(&structuredHeap));
+		// TODO: Part 2f
+		creator->CreateShaderResourceView(structuredBufferMatrix.Get(), &structuredViewMatrix, structuredHeap->GetCPUDescriptorHandleForHeapStart());
+		creator->CreateShaderResourceView(structuredBufferMaterial.Get(), &structuredViewMaterial, structuredHeap->GetCPUDescriptorHandleForHeapStart());
+#pragma endregion
+
+
+
 		// Create Vertex Shader
 		UINT compilerFlags = D3DCOMPILE_ENABLE_STRICTNESS;
 #if _DEBUG
 		compilerFlags |= D3DCOMPILE_DEBUG;
 #endif
 		Microsoft::WRL::ComPtr<ID3DBlob> vsBlob, errors;
-		if (FAILED(D3DCompile(vertexShaderSource, strlen(vertexShaderSource),
+		if (FAILED(D3DCompile(vertexShaderString.c_str(), strlen(vertexShaderString.c_str()),
 			nullptr, nullptr, nullptr, "main", "vs_5_1", compilerFlags, 0,
 			vsBlob.GetAddressOf(), errors.GetAddressOf())))
 		{
@@ -442,7 +309,7 @@ public:
 		}
 		// Create Pixel Shader
 		Microsoft::WRL::ComPtr<ID3DBlob> psBlob; errors.Reset();
-		if (FAILED(D3DCompile(pixelShaderSource, strlen(pixelShaderSource),
+		if (FAILED(D3DCompile(pixelShaderString.c_str(), strlen(pixelShaderString.c_str()),
 			nullptr, nullptr, nullptr, "main", "ps_5_1", compilerFlags, 0,
 			psBlob.GetAddressOf(), errors.GetAddressOf())))
 		{
@@ -474,11 +341,6 @@ public:
 		CD3DX12_ROOT_PARAMETER rootParameters[2];
 		rootParameters[0].InitAsConstantBufferView(0, 0);
 		rootParameters[1].InitAsConstantBufferView(1, 0);
-		//rootParameterVertex.InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
-		//rootParameterVertex.ShaderVisibility = D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_VERTEX;
-		//CD3DX12_ROOT_PARAMETER rootParameterPixel;
-		//rootParameterPixel.InitAsConstantBufferView(1, 1, D3D12_SHADER_VISIBILITY_PIXEL);
-		//rootParameterPixel.ShaderVisibility = D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_PIXEL;
 
 		// create root signature
 		CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
@@ -511,13 +373,6 @@ public:
 	}
 	void Render()
 	{
-		// Part 2a DONE
-		//GW::MATH::GMatrix gwGmatrix;
-		//gwWorldMatrix
-		//gwCopyMatrix = gwWorldMatrix;
-		//meshDataLogo.gwWorldMatrix = UpdateMatrix(meshDataLogo.gwWorldMatrixTwo);
-		//meshDataLogo.gwWorldMatrix = gwWorldMatrix;
-		// TODO: Part 4d
 		// grab the context & render target
 		ID3D12GraphicsCommandList* cmd;
 		D3D12_CPU_DESCRIPTOR_HANDLE rtv;
@@ -549,9 +404,11 @@ public:
 		//}
 
 		memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
-		frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
-		memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
+		//frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
+		//memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
 		//frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
+		//memcpy(&transferMemoryLocation[frame_meshdata], &meshDataText, sizeof(MESH_DATA)); // SCENE DATA
+		////frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
 
 		//memcpy(transferMemoryLocation, &sceneData, sizeof(SCENE_DATA)); // SCENE DATA 
 		////memcpy(transferMemoryLocation + sizeof(SCENE_DATA), &meshData, sizeof(MESH_DATA)); // MESH DATA
@@ -584,7 +441,12 @@ public:
 		// TODO: Part 3b
 
 		cmd->SetGraphicsRootConstantBufferView(0, constantBuffer->GetGPUVirtualAddress()); // SCENE_DATA register
+
+
 		cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA));
+		//cmd->DrawIndexedInstanced(modelInformation[0].modelMeshes[0].drawInfo.indexCount, 1, modelInformation[0].modelMeshes[0].drawInfo.indexOffset, 0, 0);
+		//cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA) + sizeof(MESH_DATA));
+		//cmd->DrawIndexedInstanced(modelInformation[0].modelMeshes[1].drawInfo.indexCount, 1, modelInformation[0].modelMeshes[1].drawInfo.indexOffset, 0, 0);
 		//cmd->DrawIndexedInstanced(modelInformation[0].modelMeshes[0].drawInfo.indexCount, 1, modelInformation[0].modelMeshes[0].drawInfo.indexOffset, 0, 0);
 		cmd->DrawInstanced(778, 1, 0, 0);
 		//for (int i = 0; i < swapChainDesc.BufferCount; i++)

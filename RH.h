@@ -21,6 +21,22 @@ struct MESH_DATA
 	H2B::ATTRIBUTES material;
 	unsigned padding[12];
 };
+struct ModelLocation
+{
+	std::vector<GW::MATH::GMATRIXF> gwWorldMatrix;
+};
+struct ModelMaterial
+{
+	std::vector<H2B::ATTRIBUTES> material;	// material information
+};
+struct SceneLighting
+{
+	GW::MATH::GVECTORF lightDirection;
+	GW::MATH::GVECTORF lightColor;
+	GW::MATH::GVECTORF lightAmbient;
+	GW::MATH::GVECTORF lightPos;
+};
+
 struct ModelInfo
 {
 	std::string modelNames;						// file path
@@ -34,9 +50,15 @@ struct ModelInfo
 	unsigned int indexBufferStart;				// keep track of models index buffer
 };
 
+const char* vertexShader = "../VertexShader.hlsl";	// vertex shader path
+const char* pixelShader = "../PixelShader.hlsl";	// pixel shader path
+
 std::vector<ModelInfo> modelInformation;		// keep track of every models information
 std::vector<H2B::VERTEX> vertexInfo;			// keep track of all vertecies
 std::vector<unsigned> indexInfo;				// keep track of all indexes
+unsigned int meshCount;							// keep track of all meshes in scene
+ModelLocation modelLocations;					// instance of ModelLocation struct
+ModelMaterial modelMaterials;					// instance of ModelMaterial struct
 
 void ParseFiles()
 {
@@ -155,6 +177,7 @@ void ParseFiles()
 						tempModelInfo.modelLocations.row4.y = lineFloats[1];
 						tempModelInfo.modelLocations.row4.z = lineFloats[2];
 						tempModelInfo.modelLocations.row4.w = lineFloats[3];
+						modelLocations.gwWorldMatrix.push_back(tempModelInfo.modelLocations);
 						std::cout << "Saved MESH matrix to modelLocations vector!" << std::endl;
 						break;
 					}
@@ -169,6 +192,7 @@ void ParseFiles()
 				for (int v = 0; v < gameLevelParse.materialCount; v++)
 				{
 					tempModelInfo.modelMaterial.push_back(gameLevelParse.materials[v]);
+					modelMaterials.material.push_back(gameLevelParse.materials[v].attrib);
 				}
 				// Get mesh information
 				for (int v = 0; v < gameLevelParse.meshCount; v++)
@@ -190,6 +214,7 @@ void ParseFiles()
 					indexInfo.push_back(gameLevelParse.indices[i]);
 				}
 
+				meshCount++;
 				modelInformation.push_back(tempModelInfo);
 			}
 		}
@@ -239,3 +264,18 @@ GW::MATH::GMATRIXF UpdateMatrix(GW::MATH::GMATRIXF inMatrix)
 
 	return inMatrix;
 };
+
+// Load a shader file as a string of characters.
+std::string ShaderAsString(const char* shaderFilePath) {
+	std::string output;
+	unsigned int stringLength = 0;
+	GW::SYSTEM::GFile file; file.Create();
+	file.GetFileSize(shaderFilePath, stringLength);
+	if (stringLength && +file.OpenBinaryRead(shaderFilePath)) {
+		output.resize(stringLength);
+		file.Read(&output[0], stringLength);
+	}
+	else
+		std::cout << "ERROR: Shader Source File "" << shaderFilePath << "" Not Found!" << std::endl;
+	return output;
+}
