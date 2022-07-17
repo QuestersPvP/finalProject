@@ -31,9 +31,14 @@ struct MESH_DATA
     OBJ_ATTRIBUTES material;
     uint padding[12];
 };
+struct ModelLocation
+{
+    float4x4 gwWorldMatrix;
+};
 
 ConstantBuffer<SCENE_DATA> cameraAndLights : register(b0, Space0);
 ConstantBuffer<MESH_DATA> meshInfo : register(b1, Space0);
+StructuredBuffer<ModelLocation> SceneData : register(t0, Space0);
 // TODO: Part 4f
 // TODO: Part 4b
 struct OUTPUT_TO_RASTERIZER

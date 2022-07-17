@@ -62,8 +62,6 @@ class Renderer
 	DXGI_SWAP_CHAIN_DESC swapChainDesc;
 	// TODO: Part 2b
 
-	//UINT8* transferMemoryLocation1;
-	UINT8* transferMemoryLocation;
 	MESH_DATA meshDataText;
 	MESH_DATA meshDataLogo;
 	ModelLocation tempLocation;
@@ -167,6 +165,8 @@ public:
 			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vertexBuffer));
 		// Transfer triangle data to the vertex buffer.
 
+		UINT8* transferMemoryLocation;
+
 		vertexBuffer->Map(0, &CD3DX12_RANGE(0, 0),
 			reinterpret_cast<void**>(&transferMemoryLocation));
 		memcpy(transferMemoryLocation, vertexInfo.data(), vertexSize);
@@ -249,19 +249,21 @@ public:
 			&CD3DX12_RESOURCE_DESC::Buffer(sizeof(ModelMaterial) * modelMaterials.material.size()), //* modelMaterials.material.size()
 			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&structuredBufferMaterial));
 
+		UINT8* transferMemoryLocation1;
+		UINT8* transferMemoryLocation2;
 
 		// Transfer triangle data to the vertex buffer.
 		structuredBufferMatrix->Map(0, &CD3DX12_RANGE(0, 0),
-			reinterpret_cast<void**>(&transferMemoryLocation));
+			reinterpret_cast<void**>(&transferMemoryLocation1));
 		// memcopy model matrixes
-		memcpy(&transferMemoryLocation, &modelLocations.gwWorldMatrix, sizeof(ModelLocation)); // SCENE DATA
+		memcpy(&transferMemoryLocation1, &modelLocations.gwWorldMatrix, sizeof(ModelLocation)); // SCENE DATA
 		structuredBufferMatrix->Unmap(0, nullptr);
 
 		// Transfer triangle data to the vertex buffer.
 		structuredBufferMaterial->Map(0, &CD3DX12_RANGE(0, 0),
-			reinterpret_cast<void**>(&transferMemoryLocation));
+			reinterpret_cast<void**>(&transferMemoryLocation2));
 		// memcopy model materials
-		memcpy(&transferMemoryLocation, &modelMaterials.material, sizeof(ModelMaterial)); // SCENE DATA
+		memcpy(&transferMemoryLocation2, &modelMaterials.material, sizeof(ModelMaterial)); // SCENE DATA
 		structuredBufferMaterial->Unmap(0, nullptr);
 
 		// set matrix buffer and format
@@ -338,13 +340,14 @@ public:
 
 
 			// TODO: Part 2g
-		CD3DX12_ROOT_PARAMETER rootParameters[2];
+		CD3DX12_ROOT_PARAMETER rootParameters[3];
 		rootParameters[0].InitAsConstantBufferView(0, 0);
 		rootParameters[1].InitAsConstantBufferView(1, 0);
+		rootParameters[2].InitAsShaderResourceView(0,0);
 
 		// create root signature
 		CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-		rootSignatureDesc.Init(2, rootParameters, 0, nullptr,
+		rootSignatureDesc.Init(3, rootParameters, 0, nullptr,
 			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 		Microsoft::WRL::ComPtr<ID3DBlob> signature;
 		D3D12SerializeRootSignature(&rootSignatureDesc,
@@ -387,44 +390,30 @@ public:
 		unsigned int frame_scenedata = 0;
 		unsigned int frame_meshdata = 0;// = sizeof(SCENE_DATA);
 
+		UINT8* transferMemoryLocation;
+		UINT8* transferMemoryLocation1;
+		UINT8* transferMemoryLocation2;
+
 		constantBuffer->Map(0, &CD3DX12_RANGE(0, 0),
 			reinterpret_cast<void**>(&transferMemoryLocation));
 
-
-
-		//for (int i = 0; i < swapChainDesc.BufferCount; i++)
-		//{
-
-		//	memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
-		//	frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
-		//	memcpy(&transferMemoryLocation[frame_meshdata], &meshDataText, sizeof(MESH_DATA)); // SCENE DATA
-		//	frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-		//	memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
-		//	frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-		//}
-
 		memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
-		//frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
-		//memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
-		//frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-		//memcpy(&transferMemoryLocation[frame_meshdata], &meshDataText, sizeof(MESH_DATA)); // SCENE DATA
-		////frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-
-		//memcpy(transferMemoryLocation, &sceneData, sizeof(SCENE_DATA)); // SCENE DATA 
-		////memcpy(transferMemoryLocation + sizeof(SCENE_DATA), &meshData, sizeof(MESH_DATA)); // MESH DATA
-		//memcpy(&transferMemoryLocation[frame_meshdata], &meshDataText, sizeof(MESH_DATA)); // MESH DATA
-		//memcpy(transferMemoryLocation + sizeof(SCENE_DATA) + sizeof(MESH_DATA), &meshDataLogo, sizeof(MESH_DATA)); // MESH DATA
-		//memcpy(transferMemoryLocation
-		//	+ sizeof(SCENE_DATA) + sizeof(MESH_DATA) + sizeof(MESH_DATA),
-		//	&sceneData, sizeof(SCENE_DATA)); // SCENE DATA
-		//memcpy(transferMemoryLocation
-		//	+ sizeof(SCENE_DATA) + sizeof(MESH_DATA) + sizeof(MESH_DATA) + sizeof(SCENE_DATA),
-		//	&meshDataText, sizeof(MESH_DATA)); // MESH DATA
-		//memcpy(transferMemoryLocation
-		//	+ sizeof(SCENE_DATA) + sizeof(MESH_DATA) + sizeof(MESH_DATA) + sizeof(SCENE_DATA) + sizeof(MESH_DATA),
-		//	&meshDataLogo, sizeof(MESH_DATA)); // MESH DATA
 
 		constantBuffer->Unmap(0, nullptr);
+
+		// Transfer triangle data to the vertex buffer.
+		structuredBufferMatrix->Map(0, &CD3DX12_RANGE(0, 0),
+			reinterpret_cast<void**>(&transferMemoryLocation1));
+		// memcopy model matrixes
+		memcpy(&transferMemoryLocation1, &modelLocations.gwWorldMatrix, sizeof(ModelLocation)); // SCENE DATA
+		structuredBufferMatrix->Unmap(0, nullptr);
+
+		// Transfer triangle data to the vertex buffer.
+		structuredBufferMaterial->Map(0, &CD3DX12_RANGE(0, 0),
+			reinterpret_cast<void**>(&transferMemoryLocation2));
+		// memcopy model materials
+		memcpy(&transferMemoryLocation2, &modelMaterials.material, sizeof(ModelMaterial)); // SCENE DATA
+		structuredBufferMaterial->Unmap(0, nullptr);
 
 
 		cmd->SetDescriptorHeaps(0, &descriptorHeap);
@@ -442,41 +431,10 @@ public:
 
 		cmd->SetGraphicsRootConstantBufferView(0, constantBuffer->GetGPUVirtualAddress()); // SCENE_DATA register
 
-
 		cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA));
-		//cmd->DrawIndexedInstanced(modelInformation[0].modelMeshes[0].drawInfo.indexCount, 1, modelInformation[0].modelMeshes[0].drawInfo.indexOffset, 0, 0);
-		//cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA) + sizeof(MESH_DATA));
-		//cmd->DrawIndexedInstanced(modelInformation[0].modelMeshes[1].drawInfo.indexCount, 1, modelInformation[0].modelMeshes[1].drawInfo.indexOffset, 0, 0);
-		//cmd->DrawIndexedInstanced(modelInformation[0].modelMeshes[0].drawInfo.indexCount, 1, modelInformation[0].modelMeshes[0].drawInfo.indexOffset, 0, 0);
+
 		cmd->DrawInstanced(778, 1, 0, 0);
-		//for (int i = 0; i < swapChainDesc.BufferCount; i++)
-		//{
 
-		//	if (i == 1)
-		//	{
-		//		// FULLSAIL LOGO
-		//		//meshData.material.Kd = { (1,1,1) };
-		//		cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA) + sizeof(MESH_DATA));
-		//		cmd->DrawIndexedInstanced(FSLogo_meshes[1].indexCount, 1, FSLogo_meshes[1].indexOffset, 0, 0);
-		//	}
-		//	else if (i == 0)
-		//	{
-		//		// FULLSAIL TEXT
-		//		//meshData.material.Kd = { (0,1,0) };
-		//		cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA));
-		//		cmd->DrawIndexedInstanced(FSLogo_meshes[0].indexCount, 1, FSLogo_meshes[0].indexOffset, 0, 0);
-		//	}
-		//}
-		//cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(MESH_DATA)); // MESH_DATA register
-		//cmd->DrawIndexedInstanced(FSLogo_meshes[0].indexCount, 1, FSLogo_meshes[0].indexOffset, 0, 0);
-		//cmd->DrawIndexedInstanced(FSLogo_meshes[1].indexCount, 1, FSLogo_meshes[1].indexOffset, 0, 0);
-
-
-			// TODO: Part 3c
-			// TODO: Part 4e
-
-		//cmd->DrawInstanced(3885, 1, 0, 0); // Part 1c DONE 3885
-		// release temp handles
 		cmd->Release();
 	}
 

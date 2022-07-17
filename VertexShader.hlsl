@@ -34,9 +34,14 @@ struct MESH_DATA
     OBJ_ATTRIBUTES material;
     uint padding[12];
 };
+struct ModelLocation
+{
+    float4x4 gwWorldMatrix;
+};
 
 ConstantBuffer<SCENE_DATA> cameraAndLights : register(b0, Space0);
 ConstantBuffer<MESH_DATA> meshInfo : register(b1, Space0);
+StructuredBuffer<ModelLocation> SceneData : register(t0, Space0);
 // TODO: Part 4f
 // TODO: Part 4a
 struct OUTPUT_TO_RASTERIZER
@@ -55,7 +60,7 @@ OUTPUT_TO_RASTERIZER main(float4 inputVertex : POSITION, float4 inputVertexUV : 
 	
     OUTPUT_TO_RASTERIZER rValue;
 
-    inputVertex = mul(inputVertex, meshInfo.gwWorldMatrix);
+    inputVertex = mul(inputVertex, SceneData[0].gwWorldMatrix); //SceneData[0].gwWorldMatrix
 
     float4 globalMatrix = inputVertex;
 
