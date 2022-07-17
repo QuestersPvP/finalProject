@@ -26,7 +26,7 @@ struct MESH_DATA
 //};
 //struct ModelMaterial
 //{
-//	std::vector<H2B::ATTRIBUTES> material;	// material information
+//	std::vector<H2B::ATTRIBUTES> material;	// material information 
 //};
 //struct SceneLighting
 //{
