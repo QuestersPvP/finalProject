@@ -28,8 +28,8 @@ int main()
 	if (+win.Create(0, 0, 800, 600, GWindowStyle::WINDOWEDBORDERED))
 	{
 		// Part 1a DONE
-		win.SetWindowName("Benjamin Russell - Lab 2 - DirectX12");
-		float clr[] = { 0, 168/255.0f, 107/255.0f, 1 }; // start with a jade color
+		win.SetWindowName("Benjamin Russell - Final Project - DirectX12");
+		float clr[] = { 0, 10/255.0f, 107/255.0f, 1 }; // start with a jade color
 		msgs.Create([&](const GW::GEvent& e) {
 			GW::SYSTEM::GWindow::Events q;
 			if (+e.Read(q) && q == GWindow::Events::RESIZE)
@@ -38,7 +38,7 @@ int main()
 		win.Register(msgs);
 		if (+d3d12.Create(win, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT))
 		{
-			Renderer renderer(win, d3d12); // init
+			Renderer* renderer = new Renderer(win, d3d12); // init
 			while (+win.ProcessWindowEvents())
 			{
 				if (+d3d12.StartFrame())
@@ -52,8 +52,18 @@ int main()
 					{
 						cmd->ClearRenderTargetView(rtv, clr, 0, nullptr);
 						cmd->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1, 0, 0, nullptr);
-						UpdateCamera();// move camera
-						renderer.Render(); // draw
+						
+						if (makeNewRenderer == true)
+						{
+							renderer = new Renderer(win, d3d12);
+							makeNewRenderer = false;
+						}
+
+						if (swappingLevel == false)
+						{
+							UpdateCamera();// move camera 
+						}
+						renderer->Render(); // draw
 						d3d12.EndFrame(false);
 						cmd->Release();
 					}

@@ -315,53 +315,56 @@ public:
 
 		unsigned int frame_meshdata = 0;// = sizeof(SCENE_DATA);
 
-		constantBuffer->Map(0, &CD3DX12_RANGE(0, 0),
-			reinterpret_cast<void**>(&transferMemoryLocation));
-
-		for (int i = 0; i < 1; i++)
+		if (swappingLevel == false)
 		{
-			// take in scene data
-			memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
-			frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
-			// for as many models are in the level
-			for (int j = 0; j < modelInformation.size(); j++)
+			constantBuffer->Map(0, &CD3DX12_RANGE(0, 0),
+				reinterpret_cast<void**>(&transferMemoryLocation));
+
+			for (int i = 0; i < 1; i++)
 			{
-				for (int k = 0; k < modelInformation[j].modelMeshes.size(); k++)
+				// take in scene data
+				memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
+				frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
+				// for as many models are in the level
+				for (int j = 0; j < modelInformation.size(); j++)
 				{
-					int temp = modelInformation[j].meshDataStartLocation + k;
-					memcpy(&transferMemoryLocation[frame_meshdata], &meshDataModels[temp], sizeof(MESH_DATA)); // SCENE DATA
-					frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-					//memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
-					//frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
+					for (int k = 0; k < modelInformation[j].modelMeshes.size(); k++)
+					{
+						int temp = modelInformation[j].meshDataStartLocation + k;
+						memcpy(&transferMemoryLocation[frame_meshdata], &meshDataModels[temp], sizeof(MESH_DATA)); // SCENE DATA
+						frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
+						//memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
+						//frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
+					}
 				}
 			}
-		}
 
-		constantBuffer->Unmap(0, nullptr);
+			constantBuffer->Unmap(0, nullptr);
 
-		cmd->SetDescriptorHeaps(0, &descriptorHeap);
-		//cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA)); // MESH_DATA register
-		// TODO: Part 4e
-		cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-		cmd->SetPipelineState(pipeline.Get());
-		// now we can draw
-		cmd->IASetVertexBuffers(0, 1, &vertexView);
-		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		// Part 1h DONE
-		cmd->IASetIndexBuffer(&indexView);
-		//cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		// TODO: Part 3b
+			cmd->SetDescriptorHeaps(0, &descriptorHeap);
+			//cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA)); // MESH_DATA register
+			// TODO: Part 4e
+			cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+			cmd->SetPipelineState(pipeline.Get());
+			// now we can draw
+			cmd->IASetVertexBuffers(0, 1, &vertexView);
+			cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			// Part 1h DONE
+			cmd->IASetIndexBuffer(&indexView);
+			//cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			// TODO: Part 3b
 
-		cmd->SetGraphicsRootConstantBufferView(0, constantBuffer->GetGPUVirtualAddress()); // SCENE_DATA register
+			cmd->SetGraphicsRootConstantBufferView(0, constantBuffer->GetGPUVirtualAddress()); // SCENE_DATA register
 
-		unsigned int drawData = 0;
-		for (int i = 0; i < modelInformation.size(); i++)
-		{
-			for (int j = 0; j < modelInformation[i].modelMeshes.size(); j++)
+			unsigned int drawData = 0;
+			for (int i = 0; i < modelInformation.size(); i++)
 			{
-				drawData = drawData + sizeof(MESH_DATA);
-				cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + drawData);
-				cmd->DrawIndexedInstanced(modelInformation[i].modelMeshes[j].drawInfo.indexCount, 1, modelInformation[i].modelMeshes[j].drawInfo.indexOffset, modelInformation[i].vertexStartLocation, 0);
+				for (int j = 0; j < modelInformation[i].modelMeshes.size(); j++)
+				{
+					drawData = drawData + sizeof(MESH_DATA);
+					cmd->SetGraphicsRootConstantBufferView(1, constantBuffer->GetGPUVirtualAddress() + drawData);
+					cmd->DrawIndexedInstanced(modelInformation[i].modelMeshes[j].drawInfo.indexCount, 1, modelInformation[i].modelMeshes[j].drawInfo.indexOffset, modelInformation[i].vertexStartLocation, 0);
+				}
 			}
 		}
 

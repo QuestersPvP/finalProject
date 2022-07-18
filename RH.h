@@ -20,21 +20,6 @@ struct MESH_DATA
 	H2B::ATTRIBUTES material;
 	unsigned padding[12];
 };
-//struct ModelLocation
-//{
-//	std::vector<GW::MATH::GMATRIXF> gwWorldMatrix;
-//};
-//struct ModelMaterial
-//{
-//	std::vector<H2B::ATTRIBUTES> material;	// material information 
-//};
-//struct SceneLighting
-//{
-//	GW::MATH::GVECTORF lightDirection;
-//	GW::MATH::GVECTORF lightColor;
-//	GW::MATH::GVECTORF lightAmbient;
-//	GW::MATH::GVECTORF lightPos;
-//};
 
 struct ModelInfo
 {
@@ -62,7 +47,13 @@ std::vector<MESH_DATA> meshDataModels;				// keep track of all models MESH_DATA
 SCENE_DATA sceneData;								// keep track of SCENE_DATA
 unsigned int meshCount;								// keep track of all meshes in scene
 
-GW::INPUT::GInput gInput;
+GW::INPUT::GInput gInput;							// keyboard and mouse input
+std::string mFileName;								// GameLevel File to load in
+bool currentLevel = false;							// The current level you are on
+bool swappingLevel = false;							// if game is swapping level
+bool makeNewRenderer = false;						// if we are done reading files and ready to re-populate renderer
+
+float levelSwapCooldown = 0.0f;						// level swap cooldown to avoid double clicks
 
 float mouseYLast = 0.0f;							// last mouse Y position
 float mouseXLast = 0.0f;							// last mouse X position
@@ -97,7 +88,14 @@ void ParseFiles()
 		//1.) Use either std::ifstream or FILE * to open the file.
 	std::ifstream reader;
 	std::string lineRead;
-	std::string mFileName = "../GameLevel.txt";
+	if (currentLevel)
+	{
+		mFileName = "../GameLevel.txt";
+	}
+	else
+	{
+		mFileName = "../GameLevel1.txt";
+	}
 	reader.open(mFileName);
 
 	//int modelsReadIn = 0;							// keep track of how many models
@@ -264,20 +262,14 @@ void ParseFiles()
 	// 8. Close the file when complete
 	reader.close();
 
+
+	if (swappingLevel == true)
+	{
+		swappingLevel = false;
+	}
 	/// <summary>
 	/// READING FILE END
 	/// </summary>   
-};
-
-void SetMESH_DATA()
-{
-	for (int i = 0; i < modelInformation.size(); i++)
-	{
-		for (int j = 0; j < modelInformation[i].modelMaterial.size(); j++)
-		{
-
-		}
-	}
 };
 
 float DegreeToRadians(float degree)
@@ -327,11 +319,26 @@ std::string ShaderAsString(const char* shaderFilePath) {
 	return output;
 }
 
+void SwapLevel()
+{
+	// swap what level we load
+	currentLevel = !currentLevel;
+	// destroy old data
+	modelInformation.clear();
+	vertexInfo.clear();
+	indexInfo.clear();
+	meshDataModels.clear();
+	meshCount = 0;
+	// create a new renderer
+	makeNewRenderer = true;
+}
+
 high_resolution_clock::time_point timeEnd = high_resolution_clock::now();
 void UpdateCamera()
 {
 	high_resolution_clock::time_point timeStart = high_resolution_clock::now();
 	duration<double> timePassed = duration_cast<duration<double>>(timeStart - timeEnd);
+	levelSwapCooldown += timePassed.count();
 
 
 	GW::MATH::GMatrix gwGmatrix;// = gwGmatrix.Create();
@@ -344,7 +351,7 @@ void UpdateCamera()
 	const float cameraVertSpeed = 0.5f;
 	float changeYPos, spaceOutput, shiftOutput,
 		wOutput, sOutput, dOutput, aOutput,
-		mouseDeltaX, mouseDeltaY, frameSpeed;
+		mouseDeltaX, mouseDeltaY, frameSpeed, levelSwap;
 	bool controllerCheck;
 
 	// CAMERA UP / DOWN CODE
@@ -408,6 +415,21 @@ void UpdateCamera()
 	mouseXLast = mouseDeltaX;
 	mouseYLast = mouseDeltaY;
 	// CAMERA TILT CODE
+
+	// CHECK FOR LEVEL SWAPPING
+	gInput.GetState(G_KEY_L, levelSwap);
+
+	if (levelSwapCooldown < 0.2f && levelSwap == 1.0f)
+	{
+		std::cout << "Please wait before swapping levels again!" << std::endl;
+	}
+	if (levelSwap == 1.0f && swappingLevel == false && levelSwapCooldown >= 0.2f)
+	{
+		levelSwapCooldown = 0.0f;
+		swappingLevel = true;
+		std::cout << "SWAPPING LEVEL" << std::endl;
+		SwapLevel();
+	}
 
 	timeEnd = high_resolution_clock::now();
 	gwGmatrix.InverseF(sceneData.gwViewMatrix, sceneData.gwViewMatrix);
