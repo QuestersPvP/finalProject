@@ -200,7 +200,7 @@ public:
 
 					//&meshDataModels[modelInformation[j].meshDataStartLocation]
 					memcpy(&transferMemoryLocation[frame_meshdata], &meshDataModels[temp], sizeof(MESH_DATA)); // SCENE DATA
-					tempMesh.push_back(meshDataModels[modelInformation[j].meshDataStartLocation]);
+					//tempMesh.push_back(meshDataModels[modelInformation[j].meshDataStartLocation]);
 					frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
 					//memcpy(&transferMemoryLocation[frame_meshdata], &meshDataLogo, sizeof(MESH_DATA)); // SCENE DATA
 					//frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
