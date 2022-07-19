@@ -44,8 +44,10 @@ std::vector<ModelInfo> modelInformation;			// keep track of every models informa
 std::vector<H2B::VERTEX> vertexInfo;				// keep track of all vertecies
 std::vector<unsigned> indexInfo;					// keep track of all indexes
 std::vector<MESH_DATA> meshDataModels;				// keep track of all models MESH_DATA
+std::vector<GW::MATH::GMATRIXF> cameraLocations;	// keep track of camera locations
 SCENE_DATA sceneData;								// keep track of SCENE_DATA
 unsigned int meshCount;								// keep track of all meshes in scene
+unsigned int cameraLocation;						// current camera index
 
 GW::INPUT::GInput gInput;							// keyboard and mouse input
 std::string mFileName;								// GameLevel File to load in
@@ -251,6 +253,86 @@ void ParseFiles()
 				}
 				modelInformation.push_back(tempModelInfo);
 			}
+			else if (std::strcmp(lineRead.c_str(), "CAMERA") == 0)
+			{
+				std::cout << "FOUND A CAMERA" << std::endl;
+				std::getline(reader, lineRead);
+				std::cout << "Do not need " << lineRead << " information for camera..." << std::endl;
+
+				GW::MATH::GMATRIXF tempMatrix;
+
+				for (int i = 0; i < 4; i++)
+				{
+					std::vector<std::string> lineStrings;	// for separating out the strings
+					std::vector<float> lineFloats;			// for separating out the floats
+
+					std::getline(reader, lineRead);
+					// breaking the matrix into 1.000, 1.000, 1.000, 1.000)>
+					std::stringstream findParen(lineRead);
+					while (std::getline(findParen, lineRead, '('))
+					{
+						lineStrings.push_back(lineRead);
+					}
+					// breaking the matrix into 1.000, 1.000, 1.000, 1.000)
+					std::stringstream findCarrot(lineStrings[1]);
+					while (std::getline(findCarrot, lineRead, '>'))
+					{
+						lineStrings.push_back(lineRead);
+					}
+					// breaking the matrix into 1.000, 1.000, 1.000, 1.000
+					std::stringstream find2ndParen(lineStrings[2]);
+					while (std::getline(find2ndParen, lineRead, ')'))
+					{
+						lineStrings.push_back(lineRead);
+					}
+					// breaking the matrix into 1.000 1.000 1.000 1.000
+					std::stringstream findFloats(lineStrings[3]);
+					int counter = 4;
+					while (std::getline(findFloats, lineRead, ','))
+					{
+						lineStrings.push_back(lineRead);
+						// convert the strings into a float
+						lineFloats.push_back(std::stof(lineStrings[counter]));
+
+						counter++;
+					}
+					// deposit the information into a new matrix
+					switch (i)
+					{
+					case 0:
+						tempMatrix.row1.x = lineFloats[0];
+						tempMatrix.row1.y = lineFloats[1];
+						tempMatrix.row1.z = lineFloats[2];
+						tempMatrix.row1.w = lineFloats[3];
+						break;
+					case 1:
+						tempMatrix.row2.x = lineFloats[0];
+						tempMatrix.row2.y = lineFloats[1];
+						tempMatrix.row2.z = lineFloats[2];
+						tempMatrix.row2.w = lineFloats[3];
+						break;
+					case 2:
+						tempMatrix.row3.x = lineFloats[0];
+						tempMatrix.row3.y = lineFloats[1];
+						tempMatrix.row3.z = lineFloats[2];
+						tempMatrix.row3.w = lineFloats[3];
+						break;
+					case 3:
+						tempMatrix.row4.x = lineFloats[0];
+						tempMatrix.row4.y = lineFloats[1];
+						tempMatrix.row4.z = lineFloats[2];
+						tempMatrix.row4.w = lineFloats[3];
+						//modelLocations.gwWorldMatrix.push_back(tempModelInfo.modelLocations);
+						std::cout << "Saved MESH matrix to modelLocations vector!" << std::endl;
+						break;
+					}
+				}
+				GW::MATH::GMatrix gwGmatrix;
+				gwGmatrix.Create();
+				gwGmatrix.InverseF(tempMatrix, tempMatrix);
+				cameraLocations.push_back(tempMatrix);
+				std::cout << "CAMERA PUSHED BACK" << std::endl;
+			}
 		}
 		std::cout << "File is open - time to close" << std::endl;
 	}
@@ -328,6 +410,7 @@ void SwapLevel()
 	vertexInfo.clear();
 	indexInfo.clear();
 	meshDataModels.clear();
+	cameraLocations.clear();
 	meshCount = 0;
 	// create a new renderer
 	makeNewRenderer = true;
@@ -350,7 +433,7 @@ void UpdateCamera()
 
 	const float cameraVertSpeed = 0.5f;
 	float changeYPos, spaceOutput, shiftOutput,
-		wOutput, sOutput, dOutput, aOutput,
+		wOutput, sOutput, dOutput, aOutput, cameraSwap,
 		mouseDeltaX, mouseDeltaY, frameSpeed, levelSwap;
 	bool controllerCheck;
 
@@ -416,6 +499,10 @@ void UpdateCamera()
 	mouseYLast = mouseDeltaY;
 	// CAMERA TILT CODE
 
+	timeEnd = high_resolution_clock::now();
+	gwGmatrix.InverseF(sceneData.gwViewMatrix, sceneData.gwViewMatrix);
+
+
 	// CHECK FOR LEVEL SWAPPING
 	gInput.GetState(G_KEY_L, levelSwap);
 
@@ -431,6 +518,24 @@ void UpdateCamera()
 		SwapLevel();
 	}
 
-	timeEnd = high_resolution_clock::now();
-	gwGmatrix.InverseF(sceneData.gwViewMatrix, sceneData.gwViewMatrix);
+	// CHECK FOR NEXT CAMERA 
+
+	gInput.GetState(G_KEY_C, cameraSwap);
+	if (levelSwapCooldown >= 0.2f && cameraSwap == 1.0f && cameraLocations.size() > 1)
+	{
+		levelSwapCooldown = 0.0f;
+
+		std::cout << "SWAPPING CAMERA" << std::endl;
+		if (cameraLocation < (cameraLocations.size() - 1))
+		{
+			cameraLocation++;
+		}
+		else
+		{
+			cameraLocation = 0;
+		}
+		std::cout << "Camera Index: " << cameraLocation << std::endl;
+		sceneData.gwViewMatrix = cameraLocations[cameraLocation];
+		//sceneData.gwViewMatrix = cameraLocations[1];
+	}
 }

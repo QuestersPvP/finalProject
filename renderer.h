@@ -111,7 +111,7 @@ public:
 		
 		// TODO: part 2b
 		sceneData.gwProjectionMatrix = gwProjectionMatrix;
-		sceneData.gwViewMatrix = gwViewMatrix;
+		sceneData.gwViewMatrix = cameraLocations[0];
 		sceneData.lightColor = lightColor;
 		sceneData.lightDirection = lightDirection;
 		sceneData.lightAmbient = lightAmbient;
