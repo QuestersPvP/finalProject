@@ -23,10 +23,16 @@ using namespace GRAPHICS;
 int main()
 {
 	GWindow win;
+	//GWindow win2;
 	GEventResponder msgs;
+	//GEventResponder msgs2;
 	GDirectX12Surface d3d12;
+	//GDirectX12Surface d3d122;
 	if (+win.Create(0, 0, 800, 600, GWindowStyle::WINDOWEDBORDERED))
 	{
+		// create window to render minimap
+		//+win2.Create(0, 0, 400, 300, GWindowStyle::WINDOWEDBORDERLESS);
+
 		// Part 1a DONE
 		win.SetWindowName("Benjamin Russell - Final Project - DirectX12");
 		float clr[] = { 0, 10/255.0f, 107/255.0f, 1 }; // start with a jade color
@@ -35,17 +41,40 @@ int main()
 			if (+e.Read(q) && q == GWindow::Events::RESIZE)
 				clr[0] += 0.01f; // move towards a orange as they resize
 		});
+
+		//msgs2.Create([&](const GW::GEvent& f) {
+		//	GW::SYSTEM::GWindow::Events q;
+		//	if (+f.Read(q) && q == GWindow::Events::RESIZE)
+		//		clr[0] += 0.01f; // move towards a orange as they resize
+		//	});
+
 		win.Register(msgs);
+		//win2.Register(msgs);
 		if (+d3d12.Create(win, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT))
 		{
+			// create d3d12 events for window
+			//+d3d122.Create(win2, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT);
+
 			Renderer* renderer = new Renderer(win, d3d12); // init
+			//Renderer* renderer2 = new Renderer(win2, d3d122); // init
+
 			while (+win.ProcessWindowEvents())
 			{
+				// process events for window2
+				//+win2.ProcessWindowEvents();
+
 				if (+d3d12.StartFrame())
 				{
+					//+d3d122.StartFrame();
+
 					ID3D12GraphicsCommandList* cmd;
 					D3D12_CPU_DESCRIPTOR_HANDLE rtv;
 					D3D12_CPU_DESCRIPTOR_HANDLE dsv;
+
+					/*ID3D12GraphicsCommandList* cmd2;
+					D3D12_CPU_DESCRIPTOR_HANDLE rtv2;
+					D3D12_CPU_DESCRIPTOR_HANDLE dsv2;*/
+
 					if (+d3d12.GetCommandList((void**)&cmd) && 
 						+d3d12.GetCurrentRenderTargetView((void**)&rtv) &&
 						+d3d12.GetDepthStencilView((void**)&dsv))
@@ -65,8 +94,24 @@ int main()
 						}
 						renderer->Render(); // draw
 						d3d12.EndFrame(false);
-						cmd->Release();
 					}
+
+					//if (+d3d12.GetCommandList((void**)&cmd) &&
+					//	+d3d12.GetCurrentRenderTargetView((void**)&rtv) &&
+					//	+d3d12.GetDepthStencilView((void**)&dsv))
+					//{
+					//	cmd->ClearRenderTargetView(rtv, clr, 0, nullptr);
+					//	cmd->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1, 0, 0, nullptr);
+					//	if (makeNewRenderer == true)
+					//	{
+					//		renderer2 = new Renderer(win2, d3d122);
+					//		makeNewRenderer = false;
+					//	}
+					//	renderer2->Render(); // draw
+					//	d3d122.EndFrame(false);
+					//	cmd->Release();
+					//}
+
 				}
 			}// clean-up when renderer falls off stack
 		}

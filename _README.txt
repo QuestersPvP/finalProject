@@ -10,7 +10,7 @@ Mouse - view orientation
 Space/Shift - Up/Down
 
 ------------------------------------------------------------------
-GENERAL CONTROLS:
+KEY FEATURE CONTROLS:
 NOTE: There is a 0.2 second delay on changing levels to avoid
 	      duplicate key presses.
 
@@ -22,6 +22,7 @@ C - Swap Camera Location
 Key Features:
 - Level Switching (loading / unloading)
 - Camera Swappping
+- Parent / Child relationship (only shown in level 1)
 
 ------------------------------------------------------------------
 More info - 
@@ -30,3 +31,8 @@ Over the weekend I decided to switch to object oriented.
 That being said I lost some time but with the more object
 oriented approach I was able to make up for the lost time
 more or less since it was a more familiar style of programming.
+
+------------------------------------------------------------------
+Personal Notes:
+Triangulated-
+Tree3.obj
