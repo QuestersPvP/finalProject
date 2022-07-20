@@ -117,6 +117,12 @@ public:
 		sceneData.lightAmbient = lightAmbient;
 		sceneData.lightPos = lightPos;
 		//sceneData.camPos = eye;
+		sceneDataMM.gwProjectionMatrix = gwProjectionMatrix;
+		sceneDataMM.gwViewMatrix = cameraLocations[0];
+		sceneDataMM.lightColor = lightColor;
+		sceneDataMM.lightDirection = lightDirection;
+		sceneDataMM.lightAmbient = lightAmbient;
+		sceneDataMM.lightPos = lightPos;
 
 		//meshDataText.material = modelInformation[0].modelMaterial[0];
 		//meshDataText.gwWorldMatrix = modelInformation[0].modelLocations;
@@ -300,7 +306,7 @@ public:
 		// free temporary handle
 		creator->Release();
 	}
-	void Render()
+	void Render(bool levelCam)
 	{
 		// grab the context & render target
 		ID3D12GraphicsCommandList* cmd;
@@ -320,10 +326,18 @@ public:
 			constantBuffer->Map(0, &CD3DX12_RANGE(0, 0),
 				reinterpret_cast<void**>(&transferMemoryLocation));
 
+
 			for (int i = 0; i < 1; i++)
 			{
 				// take in scene data
-				memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
+				if (levelCam)
+				{
+					memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
+				}
+				else
+				{
+					memcpy(&transferMemoryLocation[frame_meshdata], &sceneDataMM, sizeof(SCENE_DATA)); // SCENE DATA
+				}
 				frame_meshdata = frame_meshdata + sizeof(SCENE_DATA);
 				// for as many models are in the level
 				for (int j = 0; j < modelInformation.size(); j++)

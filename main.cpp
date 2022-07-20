@@ -23,15 +23,15 @@ using namespace GRAPHICS;
 int main()
 {
 	GWindow win;
-	//GWindow win2;
+	GWindow win2;
 	GEventResponder msgs;
-	//GEventResponder msgs2;
+	GEventResponder msgs2;
 	GDirectX12Surface d3d12;
-	//GDirectX12Surface d3d122;
+	GDirectX12Surface d3d122;
 	if (+win.Create(0, 0, 800, 600, GWindowStyle::WINDOWEDBORDERED))
 	{
 		// create window to render minimap
-		//+win2.Create(0, 0, 400, 300, GWindowStyle::WINDOWEDBORDERLESS);
+		+win2.Create(0, 0, 200, 150, GWindowStyle::WINDOWEDBORDERLESS);
 
 		// Part 1a DONE
 		win.SetWindowName("Benjamin Russell - Final Project - DirectX12");
@@ -49,31 +49,35 @@ int main()
 		//	});
 
 		win.Register(msgs);
-		//win2.Register(msgs);
-		if (+d3d12.Create(win, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT))
+		win2.Register(msgs);
+
+		if (+d3d12.Create(win, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT) && +d3d122.Create(win2, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT))
 		{
 			// create d3d12 events for window
-			//+d3d122.Create(win2, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT);
 
 			Renderer* renderer = new Renderer(win, d3d12); // init
-			//Renderer* renderer2 = new Renderer(win2, d3d122); // init
+			Renderer* renderer2 = new Renderer(win2, d3d122); // init
+			unsigned int tempX, tempY;
 
-			while (+win.ProcessWindowEvents())
+			while (+win.ProcessWindowEvents() && +win2.ProcessWindowEvents())
 			{
+				win.GetX(tempX);
+				win.GetY(tempY);
+				win2.ReconfigureWindow(tempX+5, tempY+30, 200, 150, GWindowStyle::WINDOWEDBORDERLESS);
 				// process events for window2
 				//+win2.ProcessWindowEvents();
 
-				if (+d3d12.StartFrame())
+				if (+d3d12.StartFrame() && +d3d122.StartFrame())
 				{
-					//+d3d122.StartFrame();
+					
 
 					ID3D12GraphicsCommandList* cmd;
 					D3D12_CPU_DESCRIPTOR_HANDLE rtv;
 					D3D12_CPU_DESCRIPTOR_HANDLE dsv;
 
-					/*ID3D12GraphicsCommandList* cmd2;
+					ID3D12GraphicsCommandList* cmd2;
 					D3D12_CPU_DESCRIPTOR_HANDLE rtv2;
-					D3D12_CPU_DESCRIPTOR_HANDLE dsv2;*/
+					D3D12_CPU_DESCRIPTOR_HANDLE dsv2;
 
 					if (+d3d12.GetCommandList((void**)&cmd) && 
 						+d3d12.GetCurrentRenderTargetView((void**)&rtv) &&
@@ -91,26 +95,28 @@ int main()
 						if (swappingLevel == false)
 						{
 							UpdateCamera();// move camera 
+							renderer->Render(true); // draw
 						}
-						renderer->Render(); // draw
 						d3d12.EndFrame(false);
 					}
 
-					//if (+d3d12.GetCommandList((void**)&cmd) &&
-					//	+d3d12.GetCurrentRenderTargetView((void**)&rtv) &&
-					//	+d3d12.GetDepthStencilView((void**)&dsv))
-					//{
-					//	cmd->ClearRenderTargetView(rtv, clr, 0, nullptr);
-					//	cmd->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1, 0, 0, nullptr);
-					//	if (makeNewRenderer == true)
-					//	{
-					//		renderer2 = new Renderer(win2, d3d122);
-					//		makeNewRenderer = false;
-					//	}
-					//	renderer2->Render(); // draw
-					//	d3d122.EndFrame(false);
-					//	cmd->Release();
-					//}
+					if (+d3d122.GetCommandList((void**)&cmd2) &&
+						+d3d122.GetCurrentRenderTargetView((void**)&rtv2) &&
+						+d3d122.GetDepthStencilView((void**)&dsv2))
+					{
+						cmd2->ClearRenderTargetView(rtv2, clr, 0, nullptr);
+						cmd2->ClearDepthStencilView(dsv2, D3D12_CLEAR_FLAG_DEPTH, 1, 0, 0, nullptr);
+
+						if (makeNewRenderer == true)
+						{
+							renderer2 = new Renderer(win2, d3d122);
+						}
+						if (swappingLevel == false)
+						{
+							renderer2->Render(false); // draw
+						}
+						d3d122.EndFrame(false);
+					}
 
 				}
 			}// clean-up when renderer falls off stack

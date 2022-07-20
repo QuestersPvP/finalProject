@@ -55,6 +55,7 @@ std::vector<MESH_DATA> meshDataModels;				// keep track of all models MESH_DATA
 std::vector<GW::MATH::GMATRIXF> cameraLocations;	// keep track of camera locations
 std::vector<Child> childObjects;					// keep track of all parent / children relationships
 SCENE_DATA sceneData;								// keep track of SCENE_DATA
+SCENE_DATA sceneDataMM;								// minimap SCENE_DATA
 unsigned int meshCount;								// keep track of all meshes in scene
 unsigned int cameraLocation;						// current camera index
 
@@ -64,6 +65,8 @@ bool currentLevel = false;							// The current level you are on
 bool swappingLevel = false;							// if game is swapping level
 bool makeNewRenderer = false;						// if we are done reading files and ready to re-populate renderer
 bool couldBeParent = true;							// keep track of what objects could be a parent
+
+bool fileLoaded = false;							// if one window already loaded a file, do not load again
 
 float levelSwapCooldown = 0.0f;						// level swap cooldown to avoid double clicks
 
@@ -96,362 +99,333 @@ float aspectRatio = 0.0f;
 void ParseFiles()
 {
 	/// <summary>
-		/// READING FILE START
-		/// </summary>
-
+	/// READING FILE START
+	/// </summary>
+	if (fileLoaded == false)
+	{
 		// run h2b file parser on the meshes you read in
 		// array of matrix
 		// parse gamelevel.txt
 		//1.) Use either std::ifstream or FILE * to open the file.
-	std::ifstream reader;
-	std::string lineRead;
-	if (currentLevel)
-	{
-		mFileName = "../GameLevel.txt";
-	}
-	else
-	{
-		mFileName = "../GameLevel1.txt";
-	}
-	reader.open(mFileName);
-
-	//int modelsReadIn = 0;							// keep track of how many models
-	//bool sameModelName = false;						// bool to keep track of if a model name has been read in already or not
-
-	//2.) Enter a infinite loop that stops when there are no more lines to read from the file.
-
-	if (reader.is_open())
-	{
-		std::cout << "File is open - time to read" << std::endl;
-
-		while (true)
+		std::ifstream reader;
+		std::string lineRead;
+		if (currentLevel)
 		{
-			if (reader.eof())
-				break;
-			//3.) Read the current line of text from the file up to the newline "\n". (can use std::getline)
-			//	3b.) Exit the loop if nothing to read.
-			std::getline(reader, lineRead);
-			//4.) String compare for the name of what you want. (intially this will be "MESH")[std::strcmp]
-			if (std::strcmp(lineRead.c_str(), "MESH") == 0 || std::strcmp(lineRead.c_str(), "  MESH") == 0)
-			{
-				std::vector<std::string> fileNames; // vector of saved file names
-				ModelInfo tempModelInfo;			// Hold temporary model information
-				Child tempChildInfo;				// keep track of potential child information
-				//GW::MATH::GMATRIXF theNewMatrix;	// a matrix to store the global position
-
-				//5.) Read the next line, this is the name of the .h2b file to load in. (duplicates?)
-
-				if (std::strcmp(lineRead.c_str(), "MESH") == 0)
-				{
-					std::cout << "FOUND A MESH" << std::endl;
-					std::getline(reader, lineRead);
-
-					// separate the .001 ect. from the string
-					std::stringstream findName(lineRead);
-					while (std::getline(findName, lineRead, '.'))
-					{
-						lineRead = "../models/" + lineRead + ".h2b"; // convert to correct file path
-						fileNames.push_back(lineRead);
-					}
-
-					std::cout << "Model Name: " << fileNames[0] << std::endl; // for debugging
-					tempModelInfo.modelNames = fileNames[0];
-
-					couldBeParent = true;
-				}
-				else
-				{
-					std::cout << "FOUND A CHILD MESH" << std::endl;
-					Child parentCopy;
-					// push back last read in mesh
-					parentCopy.childObjects.push_back(modelInformation[modelInformation.size() - 1]);
-					// put that mesh into childObects[0]
-					if (couldBeParent)
-					{
-						childObjects.push_back(parentCopy);
-					}
-					//else
-					//{
-					//	//childObjects[childObjects.size() - 1].childObjects.push_back(parentCopy);
-					//}
-					std::cout << "PARENT IS: " << childObjects[childObjects.size()-1].childObjects[0].modelNames << std::endl;
-					// set parent location in the childObjects array
-					modelInformation[modelInformation.size() - 1].parentLocation = childObjects.size()-1;
-
-					std::getline(reader, lineRead);
-					std::string fileName;
-					for (int i = 2; i < lineRead.size(); i++)
-					{
-						fileName += lineRead[i];
-					}
-
-					// separate the .001 ect. from the string
-					std::stringstream findName(fileName);
-					while (std::getline(findName, fileName, '.'))
-					{
-						fileName = "../models/" + fileName + ".h2b"; // convert to correct file path
-						fileNames.push_back(fileName);
-					}
-
-					std::cout << "Model Name: " << fileNames[0] << std::endl; // for debugging
-					tempModelInfo.modelNames = fileNames[0];
-
-					couldBeParent = false;
-				}
-
-				//6.) Read the next 4 lines.Each line contains a row of the 4x4 matrix of where the model is.
-				//	6b.) You can walk through the stringand use std::atof / std::stof to grab the floats.
-				//	6c.) Alternatley you could use std::sscanf or just std::string helpers to pull the data.
-				for (int i = 0; i < 4; i++)
-				{
-					std::vector<std::string> lineStrings;	// for separating out the strings
-					std::vector<float> lineFloats;			// for separating out the floats
-
-					std::getline(reader, lineRead);
-					// breaking the matrix into 1.000, 1.000, 1.000, 1.000)>
-					std::stringstream findParen(lineRead);
-					while (std::getline(findParen, lineRead, '('))
-					{
-						lineStrings.push_back(lineRead);
-					}
-					// breaking the matrix into 1.000, 1.000, 1.000, 1.000)
-					std::stringstream findCarrot(lineStrings[1]);
-					while (std::getline(findCarrot, lineRead, '>'))
-					{
-						lineStrings.push_back(lineRead);
-					}
-					// breaking the matrix into 1.000, 1.000, 1.000, 1.000
-					std::stringstream find2ndParen(lineStrings[2]);
-					while (std::getline(find2ndParen, lineRead, ')'))
-					{
-						lineStrings.push_back(lineRead);
-					}
-					// breaking the matrix into 1.000 1.000 1.000 1.000
-					std::stringstream findFloats(lineStrings[3]);
-					int counter = 4;
-					while (std::getline(findFloats, lineRead, ','))
-					{
-						lineStrings.push_back(lineRead);
-						// convert the strings into a float
-						lineFloats.push_back(std::stof(lineStrings[counter]));
-
-						counter++;
-					}
-					// deposit the information into a new matrix
-					switch (i)
-					{
-					case 0:
-						tempModelInfo.modelLocations.row1.x = lineFloats[0];
-						tempModelInfo.modelLocations.row1.y = lineFloats[1];
-						tempModelInfo.modelLocations.row1.z = lineFloats[2];
-						tempModelInfo.modelLocations.row1.w = lineFloats[3];
-						break;
-					case 1:
-						tempModelInfo.modelLocations.row2.x = lineFloats[0];
-						tempModelInfo.modelLocations.row2.y = lineFloats[1];
-						tempModelInfo.modelLocations.row2.z = lineFloats[2];
-						tempModelInfo.modelLocations.row2.w = lineFloats[3];
-						break;
-					case 2:
-						tempModelInfo.modelLocations.row3.x = lineFloats[0];
-						tempModelInfo.modelLocations.row3.y = lineFloats[1];
-						tempModelInfo.modelLocations.row3.z = lineFloats[2];
-						tempModelInfo.modelLocations.row3.w = lineFloats[3];
-						break;
-					case 3:
-						tempModelInfo.modelLocations.row4.x = lineFloats[0];
-						tempModelInfo.modelLocations.row4.y = lineFloats[1];
-						tempModelInfo.modelLocations.row4.z = lineFloats[2];
-						tempModelInfo.modelLocations.row4.w = lineFloats[3];
-						//modelLocations.gwWorldMatrix.push_back(tempModelInfo.modelLocations);
-						std::cout << "Saved MESH matrix to modelLocations vector!" << std::endl;
-						break;
-					}
-				}
-				// link matrix to parents
-				//if (couldBeParent == false)
-				//{
-				//	GW::MATH::GMATRIXF parenMatrix = childObjects[childObjects.size() - 1].childObjects[0].modelLocations;
-				//	GW::MATH::GMATRIXF locMatrix;
-
-				//	locMatrix.row1.x = parenMatrix.row1.x - tempModelInfo.modelLocations.row1.x;
-				//	locMatrix.row1.y = parenMatrix.row1.y - tempModelInfo.modelLocations.row1.y;
-				//	locMatrix.row1.z = parenMatrix.row1.z - tempModelInfo.modelLocations.row1.z;
-				//	locMatrix.row1.w = parenMatrix.row1.w - tempModelInfo.modelLocations.row1.w;
-
-				//	locMatrix.row2.x = parenMatrix.row2.x - tempModelInfo.modelLocations.row2.x;
-				//	locMatrix.row2.y = parenMatrix.row2.y - tempModelInfo.modelLocations.row2.y;
-				//	locMatrix.row2.z = parenMatrix.row2.z - tempModelInfo.modelLocations.row2.z;
-				//	locMatrix.row2.w = parenMatrix.row2.w - tempModelInfo.modelLocations.row2.w;
-
-				//	locMatrix.row3.x = parenMatrix.row3.x - tempModelInfo.modelLocations.row3.x;
-				//	locMatrix.row3.y = parenMatrix.row3.y - tempModelInfo.modelLocations.row3.y;
-				//	locMatrix.row3.z = parenMatrix.row3.z - tempModelInfo.modelLocations.row3.z;
-				//	locMatrix.row3.w = parenMatrix.row3.w - tempModelInfo.modelLocations.row3.w;
-
-				//	locMatrix.row4.x = parenMatrix.row4.x - tempModelInfo.modelLocations.row4.x;
-				//	locMatrix.row4.y = parenMatrix.row4.y - tempModelInfo.modelLocations.row4.y;
-				//	locMatrix.row4.z = parenMatrix.row4.z - tempModelInfo.modelLocations.row4.z;
-				//	locMatrix.row4.w = parenMatrix.row4.w - tempModelInfo.modelLocations.row4.w;
-				//	//tempModelInfo.modelLocations = childObjects[childObjects.size() - 1].childObjects[0].modelLocations;
-
-				//	// save model size
-				//	//tempModelInfo.modelLocations.row1.x = currentMatrix.row1.x;
-				//	//tempModelInfo.modelLocations.row2.y = currentMatrix.row2.y;
-				//	//tempModelInfo.modelLocations.row3.z = currentMatrix.row3.z;
-				//	//tempModelInfo.modelLocations.row4.w = currentMatrix.row4.w;
-				//	// save model location
-				//	//tempModelInfo.modelLocations.row4.x = tempX;
-				//	//tempX++;
-				//	//tempModelInfo.modelLocations.row4.y = currentMatrix.row4.y;
-				//	//tempModelInfo.modelLocations.row4.z = currentMatrix.row4.z;
-				//}
-				//7.) After the loop exists you should have collected all the level data, now time to transfer to GPU.  
-
-				H2B::Parser gameLevelParse;
-				gameLevelParse.Parse(tempModelInfo.modelNames.c_str());
-
-				// Get material information
-				for (int v = 0; v < gameLevelParse.materialCount; v++)
-				{
-					tempModelInfo.modelMaterial.push_back(gameLevelParse.materials[v].attrib);
-					//modelMaterials.material.push_back(gameLevelParse.materials[v].attrib);
-				}
-				// set the meshDataStartLocation
-				tempModelInfo.meshDataStartLocation = meshCount;
-				// Get mesh information
-				for (int v = 0; v < gameLevelParse.meshCount; v++)
-				{
-					// push back the mesh
-					tempModelInfo.modelMeshes.push_back(gameLevelParse.meshes[v]);
-					// now change the mesh BATCH (draw) information, this will ensure it works
-					tempModelInfo.modelMeshes[v].drawInfo.indexOffset  +=  indexInfo.size();
-					// set the MESH_DATA
-					MESH_DATA tempData;
-					tempData.material = tempModelInfo.modelMaterial[v];
-					tempData.gwWorldMatrix = tempModelInfo.modelLocations;
-					meshDataModels.push_back(tempData);
-					// add to the total mesh count
-					meshCount++;
-				}
-				// Get vertecies
-				//tempModelInfo.vertexBufferStart = vertexInfo.size();
-				tempModelInfo.vertexStartLocation = vertexInfo.size();
-				for (int v = 0; v < gameLevelParse.vertexCount; v++)
-				{
-					tempModelInfo.modelVertex.push_back(gameLevelParse.vertices[v]);
-					vertexInfo.push_back(gameLevelParse.vertices[v]);
-				}
-				// Get Indecies
-				//tempModelInfo.indexBufferStart = indexInfo.size();
-				for (int i = 0; i < gameLevelParse.indexCount; i++)
-				{
-					tempModelInfo.modelIndecies.push_back(gameLevelParse.indices[i]);
-					indexInfo.push_back(gameLevelParse.indices[i]);
-				}
-				modelInformation.push_back(tempModelInfo);
-
-				if (couldBeParent == false)
-				{
-					childObjects[childObjects.size() - 1].childObjects.push_back(tempModelInfo);
-				}
-			}
-			else if (std::strcmp(lineRead.c_str(), "CAMERA") == 0)
-			{
-				std::cout << "FOUND A CAMERA" << std::endl;
-				std::getline(reader, lineRead);
-				std::cout << "Do not need " << lineRead << " information for camera..." << std::endl;
-
-				GW::MATH::GMATRIXF tempMatrix;
-
-				for (int i = 0; i < 4; i++)
-				{
-					std::vector<std::string> lineStrings;	// for separating out the strings
-					std::vector<float> lineFloats;			// for separating out the floats
-
-					std::getline(reader, lineRead);
-					// breaking the matrix into 1.000, 1.000, 1.000, 1.000)>
-					std::stringstream findParen(lineRead);
-					while (std::getline(findParen, lineRead, '('))
-					{
-						lineStrings.push_back(lineRead);
-					}
-					// breaking the matrix into 1.000, 1.000, 1.000, 1.000)
-					std::stringstream findCarrot(lineStrings[1]);
-					while (std::getline(findCarrot, lineRead, '>'))
-					{
-						lineStrings.push_back(lineRead);
-					}
-					// breaking the matrix into 1.000, 1.000, 1.000, 1.000
-					std::stringstream find2ndParen(lineStrings[2]);
-					while (std::getline(find2ndParen, lineRead, ')'))
-					{
-						lineStrings.push_back(lineRead);
-					}
-					// breaking the matrix into 1.000 1.000 1.000 1.000
-					std::stringstream findFloats(lineStrings[3]);
-					int counter = 4;
-					while (std::getline(findFloats, lineRead, ','))
-					{
-						lineStrings.push_back(lineRead);
-						// convert the strings into a float
-						lineFloats.push_back(std::stof(lineStrings[counter]));
-
-						counter++;
-					}
-					// deposit the information into a new matrix
-					switch (i)
-					{
-					case 0:
-						tempMatrix.row1.x = lineFloats[0];
-						tempMatrix.row1.y = lineFloats[1];
-						tempMatrix.row1.z = lineFloats[2];
-						tempMatrix.row1.w = lineFloats[3];
-						break;
-					case 1:
-						tempMatrix.row2.x = lineFloats[0];
-						tempMatrix.row2.y = lineFloats[1];
-						tempMatrix.row2.z = lineFloats[2];
-						tempMatrix.row2.w = lineFloats[3];
-						break;
-					case 2:
-						tempMatrix.row3.x = lineFloats[0];
-						tempMatrix.row3.y = lineFloats[1];
-						tempMatrix.row3.z = lineFloats[2];
-						tempMatrix.row3.w = lineFloats[3];
-						break;
-					case 3:
-						tempMatrix.row4.x = lineFloats[0];
-						tempMatrix.row4.y = lineFloats[1];
-						tempMatrix.row4.z = lineFloats[2];
-						tempMatrix.row4.w = lineFloats[3];
-						//modelLocations.gwWorldMatrix.push_back(tempModelInfo.modelLocations);
-						std::cout << "Saved MESH matrix to modelLocations vector!" << std::endl;
-						break;
-					}
-				}
-				GW::MATH::GMatrix gwGmatrix;
-				gwGmatrix.Create();
-				gwGmatrix.InverseF(tempMatrix, tempMatrix);
-				cameraLocations.push_back(tempMatrix);
-				std::cout << "CAMERA PUSHED BACK" << std::endl;
-			}
+			mFileName = "../GameLevel.txt";
 		}
-		std::cout << "File is open - time to close" << std::endl;
-	}
-	else
-	{
-		std::cout << "Could not find file name" << std::endl;
-	}
+		else
+		{
+			mFileName = "../GameLevel1.txt";
+		}
+		reader.open(mFileName);
 
-	// 8. Close the file when complete
-	reader.close();
+		//int modelsReadIn = 0;							// keep track of how many models
+		//bool sameModelName = false;						// bool to keep track of if a model name has been read in already or not
 
+		//2.) Enter a infinite loop that stops when there are no more lines to read from the file.
+
+		if (reader.is_open())
+		{
+			std::cout << "File is open - time to read" << std::endl;
+
+			while (true)
+			{
+				if (reader.eof())
+					break;
+				//3.) Read the current line of text from the file up to the newline "\n". (can use std::getline)
+				//	3b.) Exit the loop if nothing to read.
+				std::getline(reader, lineRead);
+					//4.) String compare for the name of what you want. (intially this will be "MESH")[std::strcmp]
+					if (std::strcmp(lineRead.c_str(), "MESH") == 0 || std::strcmp(lineRead.c_str(), "  MESH") == 0)
+					{
+						std::vector<std::string> fileNames; // vector of saved file names
+						ModelInfo tempModelInfo;			// Hold temporary model information
+						Child tempChildInfo;				// keep track of potential child information
+						//GW::MATH::GMATRIXF theNewMatrix;	// a matrix to store the global position
+
+						//5.) Read the next line, this is the name of the .h2b file to load in. (duplicates?)
+
+						if (std::strcmp(lineRead.c_str(), "MESH") == 0)
+						{
+							std::cout << "FOUND A MESH" << std::endl;
+							std::getline(reader, lineRead);
+
+							// separate the .001 ect. from the string
+							std::stringstream findName(lineRead);
+							while (std::getline(findName, lineRead, '.'))
+							{
+								lineRead = "../models/" + lineRead + ".h2b"; // convert to correct file path
+								fileNames.push_back(lineRead);
+							}
+
+							std::cout << "Model Name: " << fileNames[0] << std::endl; // for debugging
+							tempModelInfo.modelNames = fileNames[0];
+
+							couldBeParent = true;
+						}
+						else
+						{
+							std::cout << "FOUND A CHILD MESH" << std::endl;
+							Child parentCopy;
+							// push back last read in mesh
+							parentCopy.childObjects.push_back(modelInformation[modelInformation.size() - 1]);
+							// put that mesh into childObects[0]
+							if (couldBeParent)
+							{
+								childObjects.push_back(parentCopy);
+							}
+							//else
+							//{
+							//	//childObjects[childObjects.size() - 1].childObjects.push_back(parentCopy);
+							//}
+							std::cout << "PARENT IS: " << childObjects[childObjects.size() - 1].childObjects[0].modelNames << std::endl;
+							// set parent location in the childObjects array
+							modelInformation[modelInformation.size() - 1].parentLocation = childObjects.size() - 1;
+
+							std::getline(reader, lineRead);
+							std::string fileName;
+							for (int i = 2; i < lineRead.size(); i++)
+							{
+								fileName += lineRead[i];
+							}
+
+							// separate the .001 ect. from the string
+							std::stringstream findName(fileName);
+							while (std::getline(findName, fileName, '.'))
+							{
+								fileName = "../models/" + fileName + ".h2b"; // convert to correct file path
+								fileNames.push_back(fileName);
+							}
+
+							std::cout << "Model Name: " << fileNames[0] << std::endl; // for debugging
+							tempModelInfo.modelNames = fileNames[0];
+
+							couldBeParent = false;
+						}
+
+						//6.) Read the next 4 lines.Each line contains a row of the 4x4 matrix of where the model is.
+						//	6b.) You can walk through the stringand use std::atof / std::stof to grab the floats.
+						//	6c.) Alternatley you could use std::sscanf or just std::string helpers to pull the data.
+						for (int i = 0; i < 4; i++)
+						{
+							std::vector<std::string> lineStrings;	// for separating out the strings
+							std::vector<float> lineFloats;			// for separating out the floats
+
+							std::getline(reader, lineRead);
+							// breaking the matrix into 1.000, 1.000, 1.000, 1.000)>
+							std::stringstream findParen(lineRead);
+							while (std::getline(findParen, lineRead, '('))
+							{
+								lineStrings.push_back(lineRead);
+							}
+							// breaking the matrix into 1.000, 1.000, 1.000, 1.000)
+							std::stringstream findCarrot(lineStrings[1]);
+							while (std::getline(findCarrot, lineRead, '>'))
+							{
+								lineStrings.push_back(lineRead);
+							}
+							// breaking the matrix into 1.000, 1.000, 1.000, 1.000
+							std::stringstream find2ndParen(lineStrings[2]);
+							while (std::getline(find2ndParen, lineRead, ')'))
+							{
+								lineStrings.push_back(lineRead);
+							}
+							// breaking the matrix into 1.000 1.000 1.000 1.000
+							std::stringstream findFloats(lineStrings[3]);
+							int counter = 4;
+							while (std::getline(findFloats, lineRead, ','))
+							{
+								lineStrings.push_back(lineRead);
+								// convert the strings into a float
+								lineFloats.push_back(std::stof(lineStrings[counter]));
+
+								counter++;
+							}
+							// deposit the information into a new matrix
+							switch (i)
+							{
+							case 0:
+								tempModelInfo.modelLocations.row1.x = lineFloats[0];
+								tempModelInfo.modelLocations.row1.y = lineFloats[1];
+								tempModelInfo.modelLocations.row1.z = lineFloats[2];
+								tempModelInfo.modelLocations.row1.w = lineFloats[3];
+								break;
+							case 1:
+								tempModelInfo.modelLocations.row2.x = lineFloats[0];
+								tempModelInfo.modelLocations.row2.y = lineFloats[1];
+								tempModelInfo.modelLocations.row2.z = lineFloats[2];
+								tempModelInfo.modelLocations.row2.w = lineFloats[3];
+								break;
+							case 2:
+								tempModelInfo.modelLocations.row3.x = lineFloats[0];
+								tempModelInfo.modelLocations.row3.y = lineFloats[1];
+								tempModelInfo.modelLocations.row3.z = lineFloats[2];
+								tempModelInfo.modelLocations.row3.w = lineFloats[3];
+								break;
+							case 3:
+								tempModelInfo.modelLocations.row4.x = lineFloats[0];
+								tempModelInfo.modelLocations.row4.y = lineFloats[1];
+								tempModelInfo.modelLocations.row4.z = lineFloats[2];
+								tempModelInfo.modelLocations.row4.w = lineFloats[3];
+								//modelLocations.gwWorldMatrix.push_back(tempModelInfo.modelLocations);
+								std::cout << "Saved MESH matrix to modelLocations vector!" << std::endl;
+								break;
+							}
+						}
+
+						//7.) After the loop exists you should have collected all the level data, now time to transfer to GPU.  
+
+						H2B::Parser gameLevelParse;
+						gameLevelParse.Parse(tempModelInfo.modelNames.c_str());
+
+						// Get material information
+						for (int v = 0; v < gameLevelParse.materialCount; v++)
+						{
+							tempModelInfo.modelMaterial.push_back(gameLevelParse.materials[v].attrib);
+							//modelMaterials.material.push_back(gameLevelParse.materials[v].attrib);
+						}
+						// set the meshDataStartLocation
+						tempModelInfo.meshDataStartLocation = meshCount;
+						// Get mesh information
+						for (int v = 0; v < gameLevelParse.meshCount; v++)
+						{
+							// push back the mesh
+							tempModelInfo.modelMeshes.push_back(gameLevelParse.meshes[v]);
+							// now change the mesh BATCH (draw) information, this will ensure it works
+							tempModelInfo.modelMeshes[v].drawInfo.indexOffset += indexInfo.size();
+							// set the MESH_DATA
+							MESH_DATA tempData;
+							tempData.material = tempModelInfo.modelMaterial[v];
+							tempData.gwWorldMatrix = tempModelInfo.modelLocations;
+							meshDataModels.push_back(tempData);
+							// add to the total mesh count
+							meshCount++;
+						}
+						// Get vertecies
+						//tempModelInfo.vertexBufferStart = vertexInfo.size();
+						tempModelInfo.vertexStartLocation = vertexInfo.size();
+						for (int v = 0; v < gameLevelParse.vertexCount; v++)
+						{
+							tempModelInfo.modelVertex.push_back(gameLevelParse.vertices[v]);
+							vertexInfo.push_back(gameLevelParse.vertices[v]);
+						}
+						// Get Indecies
+						//tempModelInfo.indexBufferStart = indexInfo.size();
+						for (int i = 0; i < gameLevelParse.indexCount; i++)
+						{
+							tempModelInfo.modelIndecies.push_back(gameLevelParse.indices[i]);
+							indexInfo.push_back(gameLevelParse.indices[i]);
+						}
+						modelInformation.push_back(tempModelInfo);
+
+						if (couldBeParent == false)
+						{
+							childObjects[childObjects.size() - 1].childObjects.push_back(tempModelInfo);
+						}
+					}
+					else if (std::strcmp(lineRead.c_str(), "CAMERA") == 0)
+					{
+						std::cout << "FOUND A CAMERA" << std::endl;
+						std::getline(reader, lineRead);
+						std::cout << "Do not need " << lineRead << " information for camera..." << std::endl;
+
+						GW::MATH::GMATRIXF tempMatrix;
+
+						for (int i = 0; i < 4; i++)
+						{
+							std::vector<std::string> lineStrings;	// for separating out the strings
+							std::vector<float> lineFloats;			// for separating out the floats
+
+							std::getline(reader, lineRead);
+							// breaking the matrix into 1.000, 1.000, 1.000, 1.000)>
+							std::stringstream findParen(lineRead);
+							while (std::getline(findParen, lineRead, '('))
+							{
+								lineStrings.push_back(lineRead);
+							}
+							// breaking the matrix into 1.000, 1.000, 1.000, 1.000)
+							std::stringstream findCarrot(lineStrings[1]);
+							while (std::getline(findCarrot, lineRead, '>'))
+							{
+								lineStrings.push_back(lineRead);
+							}
+							// breaking the matrix into 1.000, 1.000, 1.000, 1.000
+							std::stringstream find2ndParen(lineStrings[2]);
+							while (std::getline(find2ndParen, lineRead, ')'))
+							{
+								lineStrings.push_back(lineRead);
+							}
+							// breaking the matrix into 1.000 1.000 1.000 1.000
+							std::stringstream findFloats(lineStrings[3]);
+							int counter = 4;
+							while (std::getline(findFloats, lineRead, ','))
+							{
+								lineStrings.push_back(lineRead);
+								// convert the strings into a float
+								lineFloats.push_back(std::stof(lineStrings[counter]));
+
+								counter++;
+							}
+							// deposit the information into a new matrix
+							switch (i)
+							{
+							case 0:
+								tempMatrix.row1.x = lineFloats[0];
+								tempMatrix.row1.y = lineFloats[1];
+								tempMatrix.row1.z = lineFloats[2];
+								tempMatrix.row1.w = lineFloats[3];
+								break;
+							case 1:
+								tempMatrix.row2.x = lineFloats[0];
+								tempMatrix.row2.y = lineFloats[1];
+								tempMatrix.row2.z = lineFloats[2];
+								tempMatrix.row2.w = lineFloats[3];
+								break;
+							case 2:
+								tempMatrix.row3.x = lineFloats[0];
+								tempMatrix.row3.y = lineFloats[1];
+								tempMatrix.row3.z = lineFloats[2];
+								tempMatrix.row3.w = lineFloats[3];
+								break;
+							case 3:
+								tempMatrix.row4.x = lineFloats[0];
+								tempMatrix.row4.y = lineFloats[1];
+								tempMatrix.row4.z = lineFloats[2];
+								tempMatrix.row4.w = lineFloats[3];
+								//modelLocations.gwWorldMatrix.push_back(tempModelInfo.modelLocations);
+								std::cout << "Saved MESH matrix to modelLocations vector!" << std::endl;
+								break;
+							}
+						}
+						GW::MATH::GMatrix gwGmatrix;
+						gwGmatrix.Create();
+						gwGmatrix.InverseF(tempMatrix, tempMatrix);
+						cameraLocations.push_back(tempMatrix);
+						std::cout << "CAMERA PUSHED BACK" << std::endl;
+					}
+			}
+			std::cout << "File is open - time to close" << std::endl;
+		}
+		else
+		{
+			std::cout << "Could not find file name" << std::endl;
+		}
+
+		// 8. Close the file when complete
+		reader.close();
+	}
 
 	if (swappingLevel == true)
 	{
 		swappingLevel = false;
 	}
+
+	fileLoaded = true;
+	//else
+	//{
+	//	swappingLevel = false;
+	//}
+
 	/// <summary>
 	/// READING FILE END
 	/// </summary>   
@@ -515,6 +489,8 @@ void SwapLevel()
 	meshDataModels.clear();
 	cameraLocations.clear();
 	meshCount = 0;
+
+	fileLoaded = false;
 	// create a new renderer
 	makeNewRenderer = true;
 }
@@ -563,9 +539,9 @@ void UpdateCamera()
 	xChange = dOutput - aOutput;
 
 	GW::MATH::GVECTORF matrixTransformer;
-	matrixTransformer.x = xChange * timePassed.count();
+	matrixTransformer.x = xChange * 0.05f;
 	matrixTransformer.y = 0.0f;
-	matrixTransformer.z = zChange * timePassed.count();
+	matrixTransformer.z = zChange * 0.05f;
 	matrixTransformer.w = 1.0f;
 	gwGmatrix.TranslateLocalF(sceneData.gwViewMatrix, matrixTransformer, sceneData.gwViewMatrix);
 	// CAMERA STRAFE CODE
@@ -603,7 +579,7 @@ void UpdateCamera()
 	// CAMERA TILT CODE
 
 	// TRANSFORM CHILD / PARENT OBJECTS
-	if (makeNewRenderer == false)
+	if (currentLevel == false)
 	{
 		rotationAmount = rotationSpeed * timePassed.count()+0.5f;
 		GW::MATH::GMATRIXF rotMatrix;
