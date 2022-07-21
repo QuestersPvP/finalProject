@@ -35,4 +35,6 @@ more or less since it was a more familiar style of programming.
 ------------------------------------------------------------------
 Personal Notes:
 Triangulated-
-Tree3.obj
+Tree3.obj ---> depreciated
+Tree1.obj
+Silo.obj

@@ -5,6 +5,7 @@
 // Part 2a DONE
 #define GATEWARE_ENABLE_MATH
 #define GATEWARE_ENABLE_INPUT
+#define GATEWARE_ENABLE_MUSIC
 // Ignore some GRAPHICS libraries we aren't going to use
 #define GATEWARE_DISABLE_GDIRECTX11SURFACE // we have another template for this
 #define GATEWARE_DISABLE_GOPENGLSURFACE // we have another template for this
@@ -28,6 +29,18 @@ int main()
 	GEventResponder msgs2;
 	GDirectX12Surface d3d12;
 	GDirectX12Surface d3d122;
+
+	GW::AUDIO::GAudio audio;
+	audio.Create();
+	audio.PlayMusic();
+	
+	GW::AUDIO::GMusic music;
+	music.Create("../models/music.wav", audio, 1.0f);
+	
+	music.Play(true);
+	//audio.PlayMusic();
+
+
 	if (+win.Create(0, 0, 800, 600, GWindowStyle::WINDOWEDBORDERED))
 	{
 		// create window to render minimap
@@ -91,11 +104,10 @@ int main()
 							renderer = new Renderer(win, d3d12);
 							makeNewRenderer = false;
 						}
-
 						if (swappingLevel == false)
 						{
 							UpdateCamera();// move camera 
-							renderer->Render(true); // draw
+							renderer->Render(true); // draw 
 						}
 						d3d12.EndFrame(false);
 					}

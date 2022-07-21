@@ -52,6 +52,7 @@ public:
 		std::string pixelShaderString;
 		vertexShaderString = ShaderAsString(vertexShader);
 		pixelShaderString = ShaderAsString(pixelShader);
+
 		// Read In File
 		ParseFiles();
 
@@ -111,7 +112,7 @@ public:
 		
 		// TODO: part 2b
 		sceneData.gwProjectionMatrix = gwProjectionMatrix;
-		sceneData.gwViewMatrix = cameraLocations[0];
+		sceneData.gwViewMatrix = cameraLocations[1];
 		sceneData.lightColor = lightColor;
 		sceneData.lightDirection = lightDirection;
 		sceneData.lightAmbient = lightAmbient;
@@ -188,7 +189,7 @@ public:
 		unsigned int frame_meshdata = 0;
 		std::vector<MESH_DATA> tempMesh;
 
-		for (int i = 0; i < 1; i++)
+		for (int i = 0; i < 2; i++)
 		{
 			// take in scene data
 			memcpy(&transferMemoryLocation[frame_meshdata], &sceneData, sizeof(SCENE_DATA)); // SCENE DATA
@@ -327,7 +328,7 @@ public:
 				reinterpret_cast<void**>(&transferMemoryLocation));
 
 
-			for (int i = 0; i < 1; i++)
+			for (int i = 0; i < 2; i++)
 			{
 				// take in scene data
 				if (levelCam)

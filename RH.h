@@ -57,7 +57,7 @@ std::vector<Child> childObjects;					// keep track of all parent / children rela
 SCENE_DATA sceneData;								// keep track of SCENE_DATA
 SCENE_DATA sceneDataMM;								// minimap SCENE_DATA
 unsigned int meshCount;								// keep track of all meshes in scene
-unsigned int cameraLocation;						// current camera index
+unsigned int cameraLocation = 1;					// current camera index
 
 GW::INPUT::GInput gInput;							// keyboard and mouse input
 std::string mFileName;								// GameLevel File to load in
@@ -489,6 +489,7 @@ void SwapLevel()
 	meshDataModels.clear();
 	cameraLocations.clear();
 	meshCount = 0;
+	cameraLocation = 1;
 
 	fileLoaded = false;
 	// create a new renderer
@@ -640,7 +641,7 @@ void UpdateCamera()
 		}
 		else
 		{
-			cameraLocation = 0;
+			cameraLocation = 1;
 		}
 		std::cout << "Camera Index: " << cameraLocation << std::endl;
 		sceneData.gwViewMatrix = cameraLocations[cameraLocation];
