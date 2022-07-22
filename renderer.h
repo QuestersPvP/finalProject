@@ -105,9 +105,9 @@ public:
 		lightAmbient.y = 0.25f;
 		lightAmbient.z = 0.35f;
 		lightAmbient.w = 0.0f;
-		lightPos.x = 0.15f;
-		lightPos.y = 0.75f;
-		lightPos.z = -1.5f;
+		lightPos.x = 0.0f;
+		lightPos.y = 10.0f;
+		lightPos.z = 0.0f;
 		lightPos.w = 0.0f;
 		
 		// TODO: part 2b

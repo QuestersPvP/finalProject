@@ -5,7 +5,7 @@
 // Part 2a DONE
 #define GATEWARE_ENABLE_MATH
 #define GATEWARE_ENABLE_INPUT
-#define GATEWARE_ENABLE_MUSIC
+#define GATEWARE_ENABLE_AUDIO 
 // Ignore some GRAPHICS libraries we aren't going to use
 #define GATEWARE_DISABLE_GDIRECTX11SURFACE // we have another template for this
 #define GATEWARE_DISABLE_GOPENGLSURFACE // we have another template for this
@@ -15,11 +15,13 @@
 #include "../gateware/Gateware/Gateware.h"
 #include "renderer.h"
 #include "RH.h"
+#include <Windows.h>
 // open some namespaces to compact the code a bit
 using namespace GW;
 using namespace CORE;
 using namespace SYSTEM;
 using namespace GRAPHICS;
+
 // lets pop a window and use D3D12 to clear to a jade colored screen
 int main()
 {
@@ -32,10 +34,15 @@ int main()
 
 	GW::AUDIO::GAudio audio;
 	audio.Create();
-	audio.PlayMusic();
+
+	GW::AUDIO::GAudio horn;
+	GW::AUDIO::GMusic playHorn;
+	horn.Create();
+	playHorn.Create("../models/horn.wav", horn, 0.1f);
+	//audio.PlayMusic();
 	
 	GW::AUDIO::GMusic music;
-	music.Create("../models/music.wav", audio, 1.0f);
+	music.Create("../models/music.wav", audio, 0.1f);
 	
 	music.Play(true);
 	//audio.PlayMusic();
@@ -79,6 +86,11 @@ int main()
 				win2.ReconfigureWindow(tempX+5, tempY+30, 200, 150, GWindowStyle::WINDOWEDBORDERLESS);
 				// process events for window2
 				//+win2.ProcessWindowEvents();
+
+				if (GetAsyncKeyState('H') & 0x0001)
+				{
+					playHorn.Play(false);
+				}
 
 				if (+d3d12.StartFrame() && +d3d122.StartFrame())
 				{
@@ -129,7 +141,6 @@ int main()
 						}
 						d3d122.EndFrame(false);
 					}
-
 				}
 			}// clean-up when renderer falls off stack
 		}

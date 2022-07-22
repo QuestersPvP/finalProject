@@ -51,44 +51,34 @@ struct OUTPUT_TO_RASTERIZER
 float4 main(float4 hProjectionSpace : SV_POSITION, float3 normalWorld : NORMAL, float3 positionWorld : WORLD) : SV_TARGET
 {
 
+    // LIGHTRATIO = CLAMP(DOT(-LIGHTDIR, SURFACENORMAL))
+    // RESULT = LIGHTRATIO * LIGHTCOLOR * SURFACECOLOR
+
     //  VIEWDIR = NORMALIZE( CAMWORLDPOS – SURFACEPOS ) 
     //  HALFVECTOR = NORMALIZE(( -LIGHTDIR ) + VIEWDIR ) 
     //  INTENSITY = MAX( CLAMP( DOT( NORMAL, HALFVECTOR ))SPECULARPOWER , 0 )
     //  REFLECTEDLIGHT = LIGHTCOLOR * SPECULARINTENSITY * INTENSITY 
 
+    
+    float3 normal = normalize(normalWorld).xyz;
 
-        float3 normal = normalize(normalWorld).xyz;
-        float3 view = normalize(cameraAndLights.lightPos.xyz - positionWorld.xyz);
-        float3 halfVec = normalize((-cameraAndLights.lightDirection.xyz) + view);
-        float3 intensity = max(saturate(dot(halfVec, normal)), 0);
-        //return float4(cameraAndLights.lightColor.xyz * intensity);
+    float3 lightRatio = saturate(dot(-cameraAndLights.lightDirection.xyz, normal));
 
-        //float3 normal = normalize(normalWorld).xyz;
-        //float3 view = normalize(cameraAndLights.camPos.xyz - positionWorld.xyz);
-        //float3 reflectivity = reflect( (-view), normal) ;
-        //float3 halfVec = normalize((-cameraAndLights.lightDirection.xyz) + view);
-        //float3 highlight = normalize(-cameraAndLights.lightDirection.xyz + view + reflectivity); // + R
+    float result = lightRatio * cameraAndLights.lightColor.xyz * meshInfo.material.Kd;
 
-        //float3 ambient = meshInfo.material.Ka * cameraAndLights.lightAmbient.xyz * 0.65f;
-        //float3 diffuse = meshInfo.material.Kd * saturate(dot(normal, -cameraAndLights.lightDirection.xyz)) * cameraAndLights.lightColor.xyz;
-        //float3 specular = meshInfo.material.Ks * max(pow(dot(halfVec, normal), meshInfo.material.Ns), 0) * cameraAndLights.lightColor.xyz;
+    float3 view = normalize(cameraAndLights.lightPos.xyz - positionWorld.xyz);
 
-        //return float4(0, 0, 1, 1);
-        //return float4((ambient+diffuse)+ specular, 0);
-        //return float4(ambient + (diffuse + specular) * cameraAndLights.lightColor.xyz, 1); // TODO: Part 1a
-        
-        //float3 normal = normalize(normalWorld).xyz;
-        //float3 view = normalize(positionWorld.xyz - normal);
-        //float3 reflectivity = reflect((view), normal);
-        //float3 highlight = normalize(-cameraAndLights.lightDirection.xyz + view + reflectivity); // + R
-        //
-        //float3 ambient = meshInfo.material.Ka * cameraAndLights.lightAmbient.xyz * 0.65f; // * 0.65f
-        //float3 diffuse = meshInfo.material.Kd * saturate(dot(normal,-cameraAndLights.lightDirection.xyz)); //cameraAndLights.lightColor.xyz
-        //float3 specular = meshInfo.material.Ks * saturate(pow(clamp(dot(highlight, normal), 0.0f, 1.0f), meshInfo.material.Ns) + 0.00001f);
-        //
-        //return float4(ambient + (diffuse + specular) * cameraAndLights.lightColor.xyz, 1); // TODO: Part 1a
+    float3 halfVec = normalize((-cameraAndLights.lightDirection.xyz) + view);
 
-        return float4(meshInfo.material.Kd,1);
+    float3 intensity = pow(max(saturate(dot(halfVec, normal)), 0), meshInfo.material.Ns);
+
+    float3 reflectedLight = cameraAndLights.lightColor.xyz * meshInfo.material.Ks * intensity;
+
+    float4 rValue = float4(saturate(result + cameraAndLights.lightAmbient) * meshInfo.material.Kd + reflectedLight + meshInfo.material.Ke,0);
+
+    return rValue;
+
+        //return float4(meshInfo.material.Kd,1);
         //return float4(0,1,0,1);
 
 };

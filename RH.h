@@ -586,9 +586,6 @@ void UpdateCamera()
 		GW::MATH::GMATRIXF rotMatrix;
 		gwGmatrix.IdentityF(rotMatrix);
 		gwGmatrix.RotateYLocalF(rotMatrix, DegreeToRadians(rotationAmount), rotMatrix);
-		GW::MATH::GMATRIXF tranMatrix;
-		gwGmatrix.IdentityF(tranMatrix);
-		//childObjects[0].childObjects.size()
 		for (int i = 0; i < childObjects[0].childObjects.size(); i++)
 		{
 			int meshDataLocator = childObjects[0].childObjects[i].meshDataStartLocation;
@@ -596,16 +593,8 @@ void UpdateCamera()
 			{
 				gwGmatrix.MultiplyMatrixF(meshDataModels[meshDataLocator].gwWorldMatrix, rotMatrix, meshDataModels[meshDataLocator].gwWorldMatrix);
 				meshDataLocator++;
-				//for (int k = 0; k < modelInformation[j].modelMeshes.size(); k++)
-				//{
-					//int temp = modelInformation[j].meshDataStartLocation + k;
-					//memcpy(&transferMemoryLocation[frame_meshdata], &meshDataModels[temp], sizeof(MESH_DATA)); // SCENE DATA
-					//frame_meshdata = frame_meshdata + sizeof(MESH_DATA);
-				//}
 			}
 		}
-		//gwGmatrix.MultiplyMatrixF
-
 	}
 	// TRANSFORM CHILD / PARENT OBJECTS
 
@@ -627,6 +616,7 @@ void UpdateCamera()
 		std::cout << "SWAPPING LEVEL" << std::endl;
 		SwapLevel();
 	}
+
 
 	// CHECK FOR NEXT CAMERA 
 	gInput.GetState(G_KEY_C, cameraSwap);

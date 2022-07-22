@@ -18,6 +18,8 @@ L - Change level (ther are only 2 levels)
 
 C - Swap Camera Location 
 
+H - Horn (sound effect)
+
 ------------------------------------------------------------------
 Key Features:
 - Level Switching (loading / unloading)
